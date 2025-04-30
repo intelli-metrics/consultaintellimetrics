@@ -1,0 +1,1 @@
+ALTER TABLE "public"."TbDestinatario" DROP CONSTRAINT "TbDestinatario_cdEndereco_fkey";
