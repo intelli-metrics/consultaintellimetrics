@@ -129,12 +129,6 @@ def Selecionar_TbCliente():
     return resultado.data
 
 
-# Inserir registros da tabela public.TbCliente
-def Inserir_TbCliente(data):
-    resultado = supabase_api.table("TbCliente").insert(data).execute()
-    return resultado.data
-
-
 def Selecionar_TbDestinatario(cdDestinatario, cdCliente, db_client=supabase_api):
     query = db_client.table("TbDestinatario").select("*")
 
@@ -328,13 +322,6 @@ def Alterar_TbProduto(Campo, Dado, UpData, db_client=supabase_api):
     return response.data
 
 
-def deletar_TbProduto(cdProduto):
-    resultado = (
-        supabase_api.table("TbProduto").delete().eq("cdProduto", cdProduto).execute()
-    )
-    return resultado.data
-
-
 def Inserir_TbSensor(data):
     resultado = supabase_api.table("TbSensor").insert(data).execute()
     return resultado.data
@@ -399,38 +386,61 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
 
     # processa cada linha para calcular nrQtdItens e nrTemperatura baseado no tipo de sensor
     for row in resultado:
-        if row['dsUnidadeMedida'] == 'celcius':
-            row['nrTemperatura'] = row['nrLeituraSensor']
-            row['nrQtdItens'] = 0
-        elif row['dsUnidadeMedida'] == 'abertura':
-            row['nrQtdItens'] = 0
-            row['nrPorta'] = row['nrLeituraSensor']
-        elif row['dsUnidadeMedida'] == 'gramas':
-            leitura_sem_tara = row['nrLeituraSensor'] - (row['nrUnidadeIni'] or 0)
-            row['nrQtdItens'] = leitura_sem_tara / row['nrPesoUnitario'] if row['nrPesoUnitario'] else 0
-            row['nrTemperatura'] = 0
-        elif row['dsUnidadeMedida'] == 'milimetros':
-            row['nrQtdItens'] = row['nrLeituraSensor'] / row['nrAlt'] if row['nrAlt'] else 0
-            row['nrTemperatura'] = 0
-        elif row['dsUnidadeMedida'] == 'unidade':
-            row['nrQtdItens'] = row['nrLeituraSensor']
-            row['nrTemperatura'] = 0
+        if row["dsUnidadeMedida"] == "celcius":
+            row["nrTemperatura"] = row["nrLeituraSensor"]
+            row["nrQtdItens"] = 0
+        elif row["dsUnidadeMedida"] == "abertura":
+            row["nrQtdItens"] = 0
+            row["nrPorta"] = row["nrLeituraSensor"]
+        elif row["dsUnidadeMedida"] == "gramas":
+            leitura_sem_tara = row["nrLeituraSensor"] - (row["nrUnidadeIni"] or 0)
+            row["nrQtdItens"] = (
+                leitura_sem_tara / row["nrPesoUnitario"] if row["nrPesoUnitario"] else 0
+            )
+            row["nrTemperatura"] = 0
+        elif row["dsUnidadeMedida"] == "milimetros":
+            row["nrQtdItens"] = (
+                row["nrLeituraSensor"] / row["nrAlt"] if row["nrAlt"] else 0
+            )
+            row["nrTemperatura"] = 0
+        elif row["dsUnidadeMedida"] == "unidade":
+            row["nrQtdItens"] = row["nrLeituraSensor"]
+            row["nrTemperatura"] = 0
 
     # converte em pandas dataframe
     df = pd.DataFrame(resultado)
 
     # Create base dataframe with non-sensor specific columns
     base_columns = [
-        "cdProduto", "nrCodigo", "dsDescricao", "dtRegistro", 
-        "cdDispositivo", "dsNome", "dsEndereco", "nrBatPercentual",
-        "dsStatus", "dsStatusDispositivo", "nrPessoas", "cdPosicao"
+        "cdProduto",
+        "nrCodigo",
+        "dsDescricao",
+        "dtRegistro",
+        "cdDispositivo",
+        "dsNome",
+        "dsEndereco",
+        "nrBatPercentual",
+        "dsStatus",
+        "dsStatusDispositivo",
+        "nrPessoas",
+        "cdPosicao",
     ]
-    
+
     base_df = df[base_columns].drop_duplicates()
 
     # Add sensor-specific aggregated columns
-    temp_df = df[df['dsUnidadeMedida'] == 'celcius'].groupby('cdPosicao')['nrTemperatura'].first().reset_index()
-    porta_df = df[df['dsUnidadeMedida'] == 'abertura'].groupby('cdPosicao')['nrPorta'].first().reset_index()
+    temp_df = (
+        df[df["dsUnidadeMedida"] == "celcius"]
+        .groupby("cdPosicao")["nrTemperatura"]
+        .first()
+        .reset_index()
+    )
+    porta_df = (
+        df[df["dsUnidadeMedida"] == "abertura"]
+        .groupby("cdPosicao")["nrPorta"]
+        .first()
+        .reset_index()
+    )
 
     # Pivot the quantities
     pivot_df = df.pivot_table(
