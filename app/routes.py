@@ -27,7 +27,6 @@ from .services import (
     Selecionar_VwTbPosicaoAtual,
     Selecionar_VwTbProdutoTipo,
     Selecionar_VwTbProdutoTotalStatus,
-    deletar_TbProduto,
     get_endereco_coordenada,
     is_dentro_area,
     prepara_insert_registros,
@@ -46,7 +45,7 @@ def get_TbProdutoTotalStatus(codigo):
     filtros = {
         "cdCliente": request.args.get("cdCliente"),
     }
-    
+
     # Adiciona o codigo como um filtro se for diferente de 0
     if codigo != "0":
         filtros["cdProduto"] = codigo
@@ -68,12 +67,6 @@ def get_TbProdutoTotalStatus(codigo):
     resultado = Selecionar_VwTbProdutoTotalStatus(
         filtros=filtros, db_client=supabase_client
     )
-    return resultado
-
-
-@main.route("/Cliente")
-def get_Cliente():
-    resultado = Selecionar_TbCliente()
     return resultado
 
 
@@ -199,8 +192,6 @@ def get_Posicao(codigo):
         return jsonify({"message": error}), 401
 
     filtros = {
-        "dtData": request.args.get("dtData"),
-        "dtHora": request.args.get("dtHora"),
         "dsLat": request.args.get("dsLat"),
         "dsLong": request.args.get("dsLong"),
         "nrTemp": request.args.get("nrTemp"),
@@ -278,6 +269,7 @@ def post_Posicao():
 
     # insere posicao e registros. AVISO: se o primeiro insert funcionar e o segundo falhar,
     # havera uma posicao sem um sensor registro correspondente
+    # TODO: verificar como fazer em uma unica transacao (talvez seja necessario criar uma funcao para isso)
     resultado_posicao = Inserir_TbPosicao(dataTbPosicao)
 
     for sensor in dataSensorRegistro:
@@ -324,12 +316,6 @@ def update_Produto(codigo):
     )
 
     return resultado
-
-
-@main.route("/Produto/<codigo>", methods=["DELETE"])
-def delete_Produto(codigo):
-    deletar_TbProduto(codigo)
-    return jsonify({"message": "Produto deletado com sucesso"})
 
 
 @main.route("/Sensor", methods=["POST"])
