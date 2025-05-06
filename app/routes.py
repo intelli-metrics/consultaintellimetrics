@@ -8,7 +8,6 @@ from utils import valida_e_constroi_insert, valida_e_constroi_update
 
 from .services import (
     Alterar_TbProduto,
-    Inserir_TbCliente,
     Inserir_TbDestinatario,
     Inserir_TbDispositivo,
     Inserir_TbImagens,
@@ -68,18 +67,6 @@ def get_TbProdutoTotalStatus(codigo):
         filtros=filtros, db_client=supabase_client
     )
     return resultado
-
-
-@main.route("/Cliente", methods=["POST"])
-def post_Cliente():
-    payload = request.get_json()
-    data, error = valida_e_constroi_insert("TbCliente", payload)
-
-    if error:
-        return jsonify({"message": error}), 400
-
-    Inserir_TbCliente(data)
-    return "Cadastramento realizado com sucesso"
 
 
 @main.route("/Destinatario/<cdDestinatario>")
