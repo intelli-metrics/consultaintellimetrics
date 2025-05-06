@@ -603,7 +603,3 @@ drop sequence if exists "public"."TbUnidade_cdUnidade_seq";
 drop sequence if exists "public"."TbVisita_cdVisita_seq";
 
 drop sequence if exists "public"."TbVisitante_cdVisitante_seq";
-
-
-
-
