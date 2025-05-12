@@ -238,29 +238,27 @@ def get_endereco_coordenada(lat, lon):
     }
     response = requests.get(url, params=params, headers=headers)
     resultado = {}
-    if response.status_code == 200:
-        data = response.json()
-        print(data)
-        road = endereco.get('road', 'Nome da rua não encontrado')
-        resultado["dsLogradouro"] = endereco.get("road")
-        resultado["dsEndereco"] = endereco.get("road")
-        resultado["dsNum"] = "0"
-        resultado["dsBairro"] = endereco.get("suburb")
-        resultado["dsCidade"] = endereco.get("city_district")
-        resultado["dsUF"] = "SP" # endereco.get("state")
-        resultado["dsCep"] = endereco.get("postcode")
-        resultado["dsPais"] = "BR" #endereco.get("country_code")
+    
+    data = response.json()
+        #print(data)
+    road = endereco.get('road', 'Nome da rua não encontrado')
+    resultado["dsLogradouro"] = endereco.get("road")
+    resultado["dsEndereco"] = endereco.get("road")
+    resultado["dsNum"] = "0"
+    resultado["dsBairro"] = endereco.get("suburb")
+    resultado["dsCidade"] = endereco.get("city_district")
+    resultado["dsUF"] = "SP" # endereco.get("state")
+    resultado["dsCep"] = endereco.get("postcode")
+    resultado["dsPais"] = "BR" #endereco.get("country_code")
         
         
         #print(resultado)
         #return data['display_name'], data['address']
-        return resultado
+    return resultado
         
          
         
-    else:
-        print(f"Erro na requisição: {response.status_code}")
-        return None, None
+   
 
 def is_dentro_area(cdDispositivo, dsLat, dsLong):
     dic_endereco_pdv = Selecionar_VwTbDestinatarioDispositivo(codigoDisp=cdDispositivo)
