@@ -196,7 +196,7 @@ def Selecionar_TbPosicao(filtros, db_client=supabase_api):
     return resultado.data
 
 
-def get_endereco_coordenadaOld(lat, long):
+def get_endereco_coordenada(lat, long):
     payload = f"http://osm.taxidigital.net:4000/v1/reverse?point.lon={long}&point.lat={lat}&layers=address&sources=oa&size=1&cdFilial=0&cdTipoOrigem=0"
     requisicao = requests.get(payload)
     dic = requisicao.json()
@@ -225,23 +225,15 @@ def get_endereco_coordenadaOld(lat, long):
     return resultado
 
 
-def get_endereco_coordenada(lat, lon):
+def get_endereco_coordenadanew(lat, long):
     url = f"https://nominatim.openstreetmap.org/reverse"
-    params = {
-        'format': 'json',
-        'lat': lat,
-        'lon': lon,
-        'addressdetails': 1
-    }
-    headers = {
-        'User-Agent': 'SeuApp/1.0 (seu_email@exemplo.com)'  # Sempre inclua seu email ou identificação
-    }
-    response = requests.get(url, params=params, headers=headers)
+    params = {'format': 'json','lat': lat,'lon': long,'addressdetails': 1}
+    response = requests.get(url, params=params)
     resultado = {}
     
-    data = response.json()
+    endereco = response.json()
         #print(data)
-    road = endereco.get('road', 'Nome da rua não encontrado')
+    
     resultado["dsLogradouro"] = endereco.get("road")
     resultado["dsEndereco"] = endereco.get("road")
     resultado["dsNum"] = "0"
