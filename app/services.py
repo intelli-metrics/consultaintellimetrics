@@ -196,34 +196,71 @@ def Selecionar_TbPosicao(filtros, db_client=supabase_api):
     return resultado.data
 
 
-def get_endereco_coordenada(lat, long):
-    payload = f"http://osm.taxidigital.net:4000/v1/reverse?point.lon={long}&point.lat={lat}&layers=address&sources=oa&size=1&cdFilial=0&cdTipoOrigem=0"
-    requisicao = requests.get(payload)
-    dic = requisicao.json()
-    address = dic["features"]
+#def get_endereco_coordenada(lat, long):
+#    payload = f"http://osm.taxidigital.net:4000/v1/reverse?point.lon={long}&point.lat={lat}&layers=address&sources=oa&size=1&cdFilial=0&cdTipoOrigem=0"
+#    requisicao = requests.get(payload)
+#    dic = requisicao.json()
+#    address = dic["features"]
 
+#    resultado = {}
+
+#    for campos in address:
+#        dados = campos["properties"]
+#        if dados.get("street"):
+#            resultado["dsLogradouro"] = dados.get("street")
+#            resultado["dsEndereco"] = dados.get("street")
+#        if dados.get("housenumber"):
+#            resultado["dsNum"] = dados.get("housenumber")
+#        if dados.get("neighbourhood"):
+#            resultado["dsBairro"] = dados.get("neighbourhood")
+#        if dados.get("locality"):
+#            resultado["dsCidade"] = dados.get("locality")
+#        if dados.get("region_a"):
+#            resultado["dsUF"] = dados.get("region_a")
+#        if dados.get("postalcode"):
+#            resultado["dsCep"] = dados.get("postalcode")
+#        if dados.get("country_code"):
+#            resultado["dsPais"] = dados.get("country_code")
+
+#    return resultado
+
+
+def get_endereco_coordenada(lat, lon):
+    url = f"https://nominatim.openstreetmap.org/reverse"
+    params = {
+        'format': 'json',
+        'lat': lat,
+        'lon': lon,
+        'addressdetails': 1
+    }
+    headers = {
+        'User-Agent': 'SeuApp/1.0 (seu_email@exemplo.com)'  # Sempre inclua seu email ou identificação
+    }
+    response = requests.get(url, params=params, headers=headers)
     resultado = {}
-
-    for campos in address:
-        dados = campos["properties"]
-        if dados.get("street"):
-            resultado["dsLogradouro"] = dados.get("street")
-            resultado["dsEndereco"] = dados.get("street")
-        if dados.get("housenumber"):
-            resultado["dsNum"] = dados.get("housenumber")
-        if dados.get("neighbourhood"):
-            resultado["dsBairro"] = dados.get("neighbourhood")
-        if dados.get("locality"):
-            resultado["dsCidade"] = dados.get("locality")
-        if dados.get("region_a"):
-            resultado["dsUF"] = dados.get("region_a")
-        if dados.get("postalcode"):
-            resultado["dsCep"] = dados.get("postalcode")
-        if dados.get("country_code"):
-            resultado["dsPais"] = dados.get("country_code")
-
-    return resultado
-
+    if response.status_code == 200:
+        data = response.json()
+        print(data)
+        road = endereco.get('road', 'Nome da rua não encontrado')
+        resultado["dsLogradouro"] = endereco.get("road")
+        resultado["dsEndereco"] = endereco.get("road")
+        resultado["dsNum"] = "n/d"
+        resultado["dsBairro"] = endereco.get("suburb")
+        resultado["dsCidade"] = endereco.get("city_district")
+        resultado["dsUF"] = endereco.get("state")
+        resultado["dsCep"] = endereco.get("postcode")
+        resultado["dsPais"] = endereco.get("country_code")
+        
+        
+        #print(resultado)
+        #return data['display_name'], data['address']
+        return resultado
+        
+         
+        
+    else:
+        print(f"Erro na requisição: {response.status_code}")
+        return None, None
 
 def is_dentro_area(cdDispositivo, dsLat, dsLong):
     dic_endereco_pdv = Selecionar_VwTbDestinatarioDispositivo(codigoDisp=cdDispositivo)
