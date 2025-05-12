@@ -196,36 +196,36 @@ def Selecionar_TbPosicao(filtros, db_client=supabase_api):
     return resultado.data
 
 
-#def get_endereco_coordenada(lat, long):
-#    payload = f"http://osm.taxidigital.net:4000/v1/reverse?point.lon={long}&point.lat={lat}&layers=address&sources=oa&size=1&cdFilial=0&cdTipoOrigem=0"
-#    requisicao = requests.get(payload)
-#    dic = requisicao.json()
-#    address = dic["features"]
+def get_endereco_coordenada(lat, long):
+    payload = f"http://osm.taxidigital.net:4000/v1/reverse?point.lon={long}&point.lat={lat}&layers=address&sources=oa&size=1&cdFilial=0&cdTipoOrigem=0"
+    requisicao = requests.get(payload)
+    dic = requisicao.json()
+    address = dic["features"]
 
-#    resultado = {}
+    resultado = {}
 
-#    for campos in address:
-#        dados = campos["properties"]
-#        if dados.get("street"):
-#            resultado["dsLogradouro"] = dados.get("street")
-#            resultado["dsEndereco"] = dados.get("street")
-#        if dados.get("housenumber"):
-#            resultado["dsNum"] = dados.get("housenumber")
-#        if dados.get("neighbourhood"):
-#            resultado["dsBairro"] = dados.get("neighbourhood")
-#        if dados.get("locality"):
-#            resultado["dsCidade"] = dados.get("locality")
-#        if dados.get("region_a"):
-#            resultado["dsUF"] = dados.get("region_a")
-#        if dados.get("postalcode"):
-#            resultado["dsCep"] = dados.get("postalcode")
-#        if dados.get("country_code"):
-#            resultado["dsPais"] = dados.get("country_code")
+    for campos in address:
+        dados = campos["properties"]
+        if dados.get("street"):
+            resultado["dsLogradouro"] = dados.get("street")
+            resultado["dsEndereco"] = dados.get("street")
+        if dados.get("housenumber"):
+            resultado["dsNum"] = dados.get("housenumber")
+        if dados.get("neighbourhood"):
+            resultado["dsBairro"] = dados.get("neighbourhood")
+        if dados.get("locality"):
+            resultado["dsCidade"] = dados.get("locality")
+        if dados.get("region_a"):
+            resultado["dsUF"] = dados.get("region_a")
+        if dados.get("postalcode"):
+            resultado["dsCep"] = dados.get("postalcode")
+        if dados.get("country_code"):
+            resultado["dsPais"] = dados.get("country_code")
 
-#    return resultado
+    return resultado
 
 
-def get_endereco_coordenada(lat, lon):
+def get_endereco_coordenadaNew(lat, lon):
     url = f"https://nominatim.openstreetmap.org/reverse"
     params = {
         'format': 'json',
