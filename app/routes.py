@@ -234,13 +234,22 @@ def post_Posicao():
 
     if not endereco or len(endereco) == 0:
         dict_endereco_coord, error = get_endereco_coordenada(dsLat, dsLong)
-        
+
+        # TODO: remover esse for quando estiver pronto para usar so TbEndereco
+        for key, value in dict_endereco_coord.items():
+            if key != "cdEndereco" and key != "dtRegistro":
+                payload[key] = value
+            if key == "dsUF":
+                payload["dsUF"] = "SP"
+            if key == "dsLogradouro":
+                payload["dsEndereco"] = value
+
         if error:
             return jsonify({"message": error}), 500
-        
+
         if not dict_endereco_coord:
             return jsonify({"message": "Endereco nao encontrado"}), 400
-        
+
         # Cria o endereco
         data, error = valida_e_constroi_insert("TbEndereco", dict_endereco_coord)
         if error:
@@ -248,8 +257,17 @@ def post_Posicao():
         resultado = Inserir_TbEndereco(data)
         cdEndereco = resultado[0]["cdEndereco"]
     else:
+        # TODO: remover esse for quando estiver pronto para usar so TbEndereco
+        for key, value in endereco[0].items():
+            if key != "cdEndereco" and key != "dtRegistro":
+                payload[key] = value
+            if key == "dsUF":
+                payload["dsUF"] = "SP"
+            if key == "dsLogradouro":
+                payload["dsEndereco"] = value
+
         cdEndereco = endereco[0]["cdEndereco"]
-    
+
     payload["cdEndereco"] = cdEndereco
 
     blArea = is_dentro_area(cdDispositivo, dsLat, dsLong)
@@ -274,7 +292,10 @@ def post_Posicao():
     # insere posicao e registros. AVISO: se o primeiro insert funcionar e o segundo falhar,
     # havera uma posicao sem um sensor registro correspondente
     # TODO: verificar como fazer em uma unica transacao (talvez seja necessario criar uma funcao para isso)
-    resultado_posicao = Inserir_TbPosicao(dataTbPosicao)
+    try:
+        resultado_posicao = Inserir_TbPosicao(dataTbPosicao)
+    except Exception as e:
+        return jsonify({"erro ao inserir posicao": str(e)}), 500
 
     for sensor in dataSensorRegistro:
         sensor["cdPosicao"] = resultado_posicao[0]["cdPosicao"]
