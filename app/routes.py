@@ -10,15 +10,16 @@ from .services import (
     Alterar_TbProduto,
     Inserir_TbDestinatario,
     Inserir_TbDispositivo,
+    Inserir_TbEndereco,
     Inserir_TbImagens,
     Inserir_TbPosicao,
     Inserir_TbProduto,
     Inserir_TbSensor,
     Inserir_TbSensorRegistro,
     Selecionar_HistoricoPaginaDispositivo,
-    Selecionar_TbCliente,
     Selecionar_TbDestinatario,
     Selecionar_TbDispositivo,
+    Selecionar_TbEndereco,
     Selecionar_TbImagens,
     Selecionar_TbPosicao,
     Selecionar_VwRelDadosDispositivo,
@@ -110,7 +111,6 @@ def get_Dispositivo(codigo):
     return resultado
 
 
-# Inserir registros no EndPoint Dispositivo
 @main.route("/Dispositivo", methods=["POST"])
 def post_Dispositivo():
     payload = request.get_json()
@@ -159,7 +159,6 @@ def CadastraImgProduto():
     return resultado
 
 
-# Selecionar registros no EndPoint Imagens
 @main.route("/Imagens/<codigo>")
 def get_Imagens(codigo):
     supabase_client, error = get_supabase_client_from_request(request=request)
@@ -227,13 +226,31 @@ def post_Posicao():
         )
 
     cdDestinatario = dispositivo[0]["cdDestinatario"]
-
     payload["cdDestinatario"] = cdDestinatario
 
-    dict_endereco_coord = get_endereco_coordenada(dsLat, dsLong)
+    # Verifica se o endereco ja existe
+    cdEndereco = None
+    endereco = Selecionar_TbEndereco(dsLat, dsLong)
 
-    for key, value in dict_endereco_coord.items():
-        payload[key] = value
+    if not endereco or len(endereco) == 0:
+        dict_endereco_coord, error = get_endereco_coordenada(dsLat, dsLong)
+        
+        if error:
+            return jsonify({"message": error}), 500
+        
+        if not dict_endereco_coord:
+            return jsonify({"message": "Endereco nao encontrado"}), 400
+        
+        # Cria o endereco
+        data, error = valida_e_constroi_insert("TbEndereco", dict_endereco_coord)
+        if error:
+            return jsonify({"message": error}), 400
+        resultado = Inserir_TbEndereco(data)
+        cdEndereco = resultado[0]["cdEndereco"]
+    else:
+        cdEndereco = endereco[0]["cdEndereco"]
+    
+    payload["cdEndereco"] = cdEndereco
 
     blArea = is_dentro_area(cdDispositivo, dsLat, dsLong)
     payload["blArea"] = blArea
