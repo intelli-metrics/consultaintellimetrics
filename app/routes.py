@@ -10,15 +10,16 @@ from .services import (
     Alterar_TbProduto,
     Inserir_TbDestinatario,
     Inserir_TbDispositivo,
+    Inserir_TbEndereco,
     Inserir_TbImagens,
     Inserir_TbPosicao,
     Inserir_TbProduto,
     Inserir_TbSensor,
     Inserir_TbSensorRegistro,
     Selecionar_HistoricoPaginaDispositivo,
-    Selecionar_TbCliente,
     Selecionar_TbDestinatario,
     Selecionar_TbDispositivo,
+    Selecionar_TbEndereco,
     Selecionar_TbImagens,
     Selecionar_TbPosicao,
     Selecionar_VwRelDadosDispositivo,
@@ -110,7 +111,6 @@ def get_Dispositivo(codigo):
     return resultado
 
 
-# Inserir registros no EndPoint Dispositivo
 @main.route("/Dispositivo", methods=["POST"])
 def post_Dispositivo():
     payload = request.get_json()
@@ -159,7 +159,6 @@ def CadastraImgProduto():
     return resultado
 
 
-# Selecionar registros no EndPoint Imagens
 @main.route("/Imagens/<codigo>")
 def get_Imagens(codigo):
     supabase_client, error = get_supabase_client_from_request(request=request)
@@ -205,8 +204,25 @@ def post_Posicao():
 
     print(payload)
 
-    dsLat = payload["dsLat"]
-    dsLong = payload["dsLong"]
+    try:
+        dsLat = float(payload["dsLat"])
+        dsLong = float(payload["dsLong"])
+        
+        # Validate latitude range (-90 to 90)
+        if not -90 <= dsLat <= 90:
+            return jsonify({"message": "Latitude deve estar entre -90 e 90 graus"}), 400
+            
+        # Validate longitude range (-180 to 180)
+        if not -180 <= dsLong <= 180:
+            return jsonify({"message": "Longitude deve estar entre -180 e 180 graus"}), 400
+            
+        # Round to 5 decimal places
+        dsLat = round(dsLat, 5)
+        dsLong = round(dsLong, 5)
+        
+    except (ValueError, TypeError):
+        return jsonify({"message": "Latitude e longitude devem ser números válidos"}), 400
+
     cdDispositivo = payload["cdDispositivo"]
 
     if not dsLat or not dsLong or not cdDispositivo:
@@ -227,13 +243,49 @@ def post_Posicao():
         )
 
     cdDestinatario = dispositivo[0]["cdDestinatario"]
-
     payload["cdDestinatario"] = cdDestinatario
 
-    dict_endereco_coord = get_endereco_coordenada(dsLat, dsLong)
+    # Verifica se o endereco ja existe
+    cdEndereco = None
+    endereco = Selecionar_TbEndereco(dsLat, dsLong)
 
-    for key, value in dict_endereco_coord.items():
-        payload[key] = value
+    if not endereco or len(endereco) == 0:
+        dict_endereco_coord, error = get_endereco_coordenada(dsLat, dsLong)
+
+        # TODO: remover esse for quando estiver pronto para usar so TbEndereco
+        for key, value in dict_endereco_coord.items():
+            if key != "cdEndereco" and key != "dtRegistro":
+                payload[key] = value
+            if key == "dsUF":
+                payload["dsUF"] = "SP"
+            if key == "dsLogradouro":
+                payload["dsEndereco"] = value
+
+        if error:
+            return jsonify({"message": error}), 500
+
+        if not dict_endereco_coord:
+            return jsonify({"message": "Endereco nao encontrado"}), 400
+
+        # Cria o endereco
+        data, error = valida_e_constroi_insert("TbEndereco", dict_endereco_coord)
+        if error:
+            return jsonify({"message": error}), 400
+        resultado = Inserir_TbEndereco(data)
+        cdEndereco = resultado[0]["cdEndereco"]
+    else:
+        # TODO: remover esse for quando estiver pronto para usar so TbEndereco
+        for key, value in endereco[0].items():
+            if key != "cdEndereco" and key != "dtRegistro":
+                payload[key] = value
+            if key == "dsUF":
+                payload["dsUF"] = "SP"
+            if key == "dsLogradouro":
+                payload["dsEndereco"] = value
+
+        cdEndereco = endereco[0]["cdEndereco"]
+
+    payload["cdEndereco"] = cdEndereco
 
     blArea = is_dentro_area(cdDispositivo, dsLat, dsLong)
     payload["blArea"] = blArea
@@ -257,7 +309,10 @@ def post_Posicao():
     # insere posicao e registros. AVISO: se o primeiro insert funcionar e o segundo falhar,
     # havera uma posicao sem um sensor registro correspondente
     # TODO: verificar como fazer em uma unica transacao (talvez seja necessario criar uma funcao para isso)
-    resultado_posicao = Inserir_TbPosicao(dataTbPosicao)
+    try:
+        resultado_posicao = Inserir_TbPosicao(dataTbPosicao)
+    except Exception as e:
+        return jsonify({"erro ao inserir posicao": str(e)}), 500
 
     for sensor in dataSensorRegistro:
         sensor["cdPosicao"] = resultado_posicao[0]["cdPosicao"]
