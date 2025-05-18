@@ -204,8 +204,25 @@ def post_Posicao():
 
     print(payload)
 
-    dsLat = payload["dsLat"]
-    dsLong = payload["dsLong"]
+    try:
+        dsLat = float(payload["dsLat"])
+        dsLong = float(payload["dsLong"])
+        
+        # Validate latitude range (-90 to 90)
+        if not -90 <= dsLat <= 90:
+            return jsonify({"message": "Latitude deve estar entre -90 e 90 graus"}), 400
+            
+        # Validate longitude range (-180 to 180)
+        if not -180 <= dsLong <= 180:
+            return jsonify({"message": "Longitude deve estar entre -180 e 180 graus"}), 400
+            
+        # Round to 5 decimal places
+        dsLat = round(dsLat, 5)
+        dsLong = round(dsLong, 5)
+        
+    except (ValueError, TypeError):
+        return jsonify({"message": "Latitude e longitude devem ser números válidos"}), 400
+
     cdDispositivo = payload["cdDispositivo"]
 
     if not dsLat or not dsLong or not cdDispositivo:
