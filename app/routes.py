@@ -216,9 +216,9 @@ def post_Posicao():
         if not -180 <= dsLong <= 180:
             return jsonify({"message": "Longitude deve estar entre -180 e 180 graus"}), 400
             
-        # Round to 5 decimal places
-        dsLat = round(dsLat, 5)
-        dsLong = round(dsLong, 5)
+        # Round to 5 decimal places and convert to string
+        dsLat = str(round(dsLat, 5))
+        dsLong = str(round(dsLong, 5))
         
     except (ValueError, TypeError):
         return jsonify({"message": "Latitude e longitude devem ser números válidos"}), 400
