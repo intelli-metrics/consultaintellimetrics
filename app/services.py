@@ -1,5 +1,4 @@
 from collections import defaultdict
-from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
 import pandas as pd
@@ -196,33 +195,69 @@ def Selecionar_TbPosicao(filtros, db_client=supabase_api):
     return resultado.data
 
 
-def get_endereco_coordenada(lat, long):
-    payload = f"http://osm.taxidigital.net:4000/v1/reverse?point.lon={long}&point.lat={lat}&layers=address&sources=oa&size=1&cdFilial=0&cdTipoOrigem=0"
-    requisicao = requests.get(payload)
-    dic = requisicao.json()
-    address = dic["features"]
-
+def get_endereco_coordenada(lat, lon):
     resultado = {}
-
-    for campos in address:
-        dados = campos["properties"]
-        if dados.get("street"):
-            resultado["dsLogradouro"] = dados.get("street")
-            resultado["dsEndereco"] = dados.get("street")
-        if dados.get("housenumber"):
-            resultado["dsNum"] = dados.get("housenumber")
-        if dados.get("neighbourhood"):
-            resultado["dsBairro"] = dados.get("neighbourhood")
-        if dados.get("locality"):
-            resultado["dsCidade"] = dados.get("locality")
-        if dados.get("region_a"):
-            resultado["dsUF"] = dados.get("region_a")
-        if dados.get("postalcode"):
-            resultado["dsCep"] = dados.get("postalcode")
-        if dados.get("country_code"):
-            resultado["dsPais"] = dados.get("country_code")
-
-    return resultado
+    url = f"https://nominatim.openstreetmap.org/reverse"
+    params = {
+        "format": "json",
+        "lat": lat,
+        "lon": lon,
+        "addressdetails": 1,
+        "zoom": 18,
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Intellimetrics/1.0 (augusto@intellimetrics.tec.br)",
+    }
+    
+    try:
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        
+        # Lida com rate limiting
+        if response.status_code == 429:
+            print("Rate limit exceeded for Nominatim API")
+            return None, "Rate limit exceeded. Please try again later."
+            
+        # Lida com outros erros HTTP
+        if response.status_code != 200:
+            print(f"Erro na requisição de endereço: {response.status_code}, {response.text}")
+            return None, f"Error fetching address: {response.status_code}"
+            
+        data = response.json()
+        
+        # Verifica se a resposta é válida
+        if not data or "address" not in data:
+            return None, "Nenhum endereço encontrado para essas coordenadas"
+            
+        endereco = data.get("address", {})
+        
+        # Constrói o resultado com fallback para campos ausentes
+        resultado = {
+            "dsLogradouro": endereco.get("road", "Nome da rua não encontrado"),
+            "dsNumero": endereco.get("house_number", ""),
+            "dsBairro": endereco.get("suburb", ""),
+            "dsCidade": endereco.get("city", endereco.get("town", "")),
+            "dsUF": endereco.get("state", ""),
+            "dsCep": endereco.get("postcode", ""),
+            "dsLat": lat,
+            "dsLong": lon,
+            "dsPais": endereco.get("country_code", ""),
+        }
+        
+        return resultado, None
+        
+    except requests.exceptions.Timeout:
+        print("Timeout ao buscar endereço do Nominatim")
+        return None, "Timeout ao buscar endereço"
+    except requests.exceptions.RequestException as e:
+        print(f"Erro de rede ao buscar endereço: {str(e)}")
+        return None, f"Erro de rede: {str(e)}"
+    except ValueError as e:
+        print(f"Erro ao analisar resposta do Nominatim: {str(e)}")
+        return None, "Erro ao analisar dados do endereço"
+    except Exception as e:
+        print(f"Erro inesperado em get_endereco_coordenada: {str(e)}")
+        return None, f"Erro inesperado: {str(e)}"
 
 
 def get_endereco_coordenadanew(lat, long):
@@ -515,4 +550,20 @@ def Selecionar_VwTbPosicaoAtual(filtros, db_client=supabase_api):
         query = query.eq(campo, valor)
 
     resultado = query.execute()
+    return resultado.data
+
+
+def Selecionar_TbEndereco(dsLat, dsLong, db_client=supabase_api):
+    query = (
+        db_client.table("TbEndereco")
+        .select("*")
+        .eq("dsLat", dsLat)
+        .eq("dsLong", dsLong)
+    )
+    resultado = query.execute()
+    return resultado.data
+
+
+def Inserir_TbEndereco(data, db_client=supabase_api):
+    resultado = db_client.table("TbEndereco").insert(data).execute()
     return resultado.data
