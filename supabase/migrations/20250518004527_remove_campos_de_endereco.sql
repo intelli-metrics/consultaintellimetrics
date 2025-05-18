@@ -12,7 +12,7 @@ alter table "public"."TbDestinatario" add constraint "TbDestinatario_cdEndereco_
 
 alter table "public"."TbDestinatario" drop column "dsLogradouro";
 alter table "public"."TbDestinatario" drop column "nrNumero";
-alter table "public"."TbDestinatario" drop column "dsComplemente";
+alter table "public"."TbDestinatario" drop column "dsComplemento";
 alter table "public"."TbDestinatario" drop column "dsBairro";
 alter table "public"."TbDestinatario" drop column "dsCep";
 alter table "public"."TbDestinatario" drop column "dsCidade";

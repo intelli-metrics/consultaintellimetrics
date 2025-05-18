@@ -169,14 +169,14 @@ select
     end / 3.7::double precision * 100::double precision
   )::numeric(15, 2) as "nrBat",
   "E"."dsNome" as "dsNomeDest",
-  "E"."dsLogradouro" as "dsEnderecoDest",
-  "E"."nrNumero" as "nrNumeroDest",
-  "E"."dsBairro" as "dsBairroDest",
-  "E"."dsCidade" as "dsCidadeDest",
-  "E"."dsUF" as "dsUfDest",
-  "E"."dsCep" as "dsCepDest",
-  "E"."dsLat" as "dsLatDest",
-  "E"."dsLong" as "dsLongDest",
+  "endereco"."dsLogradouro" as "dsEnderecoDest",
+  "endereco"."nrNumero" as "nrNumeroDest",
+  "endereco"."dsBairro" as "dsBairroDest",
+  "endereco"."dsCidade" as "dsCidadeDest",
+  "endereco"."dsUF" as "dsUfDest",
+  "endereco"."dsCep" as "dsCepDest",
+  "endereco"."dsLat" as "dsLatDest",
+  "endereco"."dsLong" as "dsLongDest",
   "E"."nrRaio" as "dsRaio",
   "C"."dsEndereco" as "dsEnderecoAtual",
   "C"."dsNum" as "dsNumeroAtual",
@@ -194,5 +194,6 @@ from
   "TbProduto" "A"
   join "TbDispositivo" "F" on "F"."cdProduto" = "A"."cdProduto"
   join "VwTbPosicaoAtual" "C" on "F"."cdDispositivo" = "C"."cdDispositivo"
-  join "TbDestinatario" "E" on "F"."cdDestinatario" = "E"."cdDestinatario";
+  join "TbDestinatario" "E" on "F"."cdDestinatario" = "E"."cdDestinatario"
+  join "TbEndereco" "endereco" on "E"."cdEndereco" = "endereco"."cdEndereco";
 
