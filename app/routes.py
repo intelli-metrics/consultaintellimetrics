@@ -27,6 +27,7 @@ from .services import (
     Selecionar_VwTbPosicaoAtual,
     Selecionar_VwTbProdutoTipo,
     Selecionar_VwTbProdutoTotalStatus,
+    Selecionar_GroupedSensorData,
     get_endereco_coordenada,
     is_dentro_area,
     prepara_insert_registros,
@@ -475,3 +476,25 @@ def get_TbPosicaoAtual(codigo):
 
     resultado = Selecionar_VwTbPosicaoAtual(filtros=filtros, db_client=supabase_client)
     return resultado
+
+
+@main.route("/GroupedSensorData")
+def get_GroupedSensorData():
+    supabase_client, error = get_supabase_client_from_request(request=request)
+
+    if error or supabase_client is None:
+        return jsonify({"message": error}), 401
+
+    cdDispositivo = request.args.get("cdDispositivo")
+    dtRegistroComeco = request.args.get("dtRegistroComeco")
+    dtRegistroFim = request.args.get("dtRegistroFim")
+
+    if not cdDispositivo:
+        return jsonify({"message": "Pelo menos um cdDispositivo é necessário"}), 400
+
+    dispositivos = cdDispositivo.split(",")
+    resultado = Selecionar_GroupedSensorData(dispositivos, dtRegistroComeco, dtRegistroFim)
+
+    return jsonify(resultado)
+
+

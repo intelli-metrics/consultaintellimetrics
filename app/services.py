@@ -540,3 +540,26 @@ def Selecionar_TbEndereco(dsLat, dsLong, db_client=supabase_api):
 def Inserir_TbEndereco(data, db_client=supabase_api):
     resultado = db_client.table("TbEndereco").insert(data).execute()
     return resultado.data
+
+
+def Selecionar_GroupedSensorData(dispositivos: List[str], dtRegistroComeco: str = None, dtRegistroFim: str = None, db_client=supabase_api):
+    query = db_client.table("VwRelHistoricoDispositivoProduto").select("*")
+
+    # Filter by cdDispositivo
+    query = query.in_("cdDispositivo", dispositivos)
+
+    # Filter by dtRegistroComeco and dtRegistroFim
+    if dtRegistroComeco and dtRegistroFim:
+        query = query.gte("dtRegistro", dtRegistroComeco).lte("dtRegistro", dtRegistroFim)
+    elif dtRegistroComeco:
+        query = query.gte("dtRegistro", dtRegistroComeco)
+    elif dtRegistroFim:
+        query = query.lte("dtRegistro", dtRegistroFim)
+
+    # Filter by dsTipoSensor
+    query = query.in_("dsTipoSensor", ["Camera de movimento", "Abertura de Porta", "Temperatura"])
+
+    # Execute the query
+    resultado = query.execute()
+
+    return resultado.data
