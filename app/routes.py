@@ -417,6 +417,7 @@ def get_RelHistoricoDispositivoProduto(codigo):
 
     filtros = {
         "dtRegistro": request.args.get("dtRegistro"),
+        "cdCliente": request.args.get("cdCliente"),
     }
 
     # Remove filtros que nao tem valor
