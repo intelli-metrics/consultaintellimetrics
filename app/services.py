@@ -567,3 +567,20 @@ def Selecionar_TbEndereco(dsLat, dsLong, db_client=supabase_api):
 def Inserir_TbEndereco(data, db_client=supabase_api):
     resultado = db_client.table("TbEndereco").insert(data).execute()
     return resultado.data
+
+
+def Selecionar_GroupedSensorData(dispositivos: List[str], dtRegistroComeco: str = None, dtRegistroFim: str = None, db_client=supabase_api):
+    # Prepare the function call
+    query = db_client.rpc(
+        "get_grouped_sensor_data",
+        {
+            "dispositivos": dispositivos,
+            "dt_registro_comeco": dtRegistroComeco,
+            "dt_registro_fim": dtRegistroFim,
+        }
+    )
+
+    # Execute the query
+    resultado = query.execute()
+
+    return resultado.data
