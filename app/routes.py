@@ -493,8 +493,24 @@ def get_GroupedSensorData():
         return jsonify({"message": "Pelo menos um cdDispositivo é necessário"}), 400
 
     dispositivos = cdDispositivo.split(",")
-    resultado = Selecionar_GroupedSensorData(dispositivos, dtRegistroComeco, dtRegistroFim)
+    raw_result = Selecionar_GroupedSensorData(dispositivos, dtRegistroComeco, dtRegistroFim)
 
-    return jsonify(resultado)
+    # Transform the raw result into the desired JSON structure
+    structured_result = {"cdDispositivos": {}}
+    for row in raw_result:
+        cd_dispositivo = row["cdDispositivo"]
+        ds_tipo_sensor = row["dsTipoSensor"]
+        media_leitura = row["mediaLeitura"]
+        total_leitura = row["totalLeitura"]
+
+        if cd_dispositivo not in structured_result["cdDispositivos"]:
+            structured_result["cdDispositivos"][cd_dispositivo] = {}
+
+        structured_result["cdDispositivos"][cd_dispositivo][ds_tipo_sensor] = {
+            "mediaLeitura": media_leitura,
+            "totalLeitura": total_leitura,
+        }
+
+    return jsonify(structured_result)
 
 
