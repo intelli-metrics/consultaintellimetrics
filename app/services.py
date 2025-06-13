@@ -11,6 +11,8 @@ from utils import (
     valida_e_constroi_insert,
     convert_sao_paulo_date_to_utc_range,
 )
+import pytz
+from datetime import datetime, time
 
 
 def Selecionar_VwTbProdutoTotalStatus(filtros, db_client=supabase_api):
@@ -209,28 +211,30 @@ def get_endereco_coordenada(lat, lon):
         "Content-Type": "application/json",
         "User-Agent": "Intellimetrics/1.0 (augusto@intellimetrics.tec.br)",
     }
-    
+
     try:
         response = requests.get(url, params=params, headers=headers, timeout=10)
-        
+
         # Lida com rate limiting
         if response.status_code == 429:
             print("Rate limit exceeded for Nominatim API")
             return None, "Rate limit exceeded. Please try again later."
-            
+
         # Lida com outros erros HTTP
         if response.status_code != 200:
-            print(f"Erro na requisição de endereço: {response.status_code}, {response.text}")
+            print(
+                f"Erro na requisição de endereço: {response.status_code}, {response.text}"
+            )
             return None, f"Error fetching address: {response.status_code}"
-            
+
         data = response.json()
-        
+
         # Verifica se a resposta é válida
         if not data or "address" not in data:
             return None, "Nenhum endereço encontrado para essas coordenadas"
-            
+
         endereco = data.get("address", {})
-        
+
         # Constrói o resultado com fallback para campos ausentes
         resultado = {
             "dsLogradouro": endereco.get("road", "Nome da rua não encontrado"),
@@ -243,9 +247,9 @@ def get_endereco_coordenada(lat, lon):
             "dsLong": lon,
             "dsPais": endereco.get("country_code", ""),
         }
-        
+
         return resultado, None
-        
+
     except requests.exceptions.Timeout:
         print("Timeout ao buscar endereço do Nominatim")
         return None, "Timeout ao buscar endereço"
@@ -387,7 +391,22 @@ def Selecionar_VwTbProdutoTotal(codigo, db_client=supabase_api):
 def Selecionar_VwRelHistoricoDispositivoProduto(filtros, db_client=supabase_api):
     query = db_client.table("VwRelHistoricoDispositivoProduto").select("*")
 
-    # aplica filtros
+    # Date range logic for São Paulo timezone
+    dt_inicio = filtros.pop("dtRegistroComeco", None)
+    dt_fim = filtros.pop("dtRegistroFim", None)
+    if dt_inicio and dt_fim:
+        start_dt, _ = convert_sao_paulo_date_to_utc_range(dt_inicio)
+        _, end_dt = convert_sao_paulo_date_to_utc_range(dt_fim)
+        query = query.gte("dtRegistro", start_dt)
+        query = query.lte("dtRegistro", end_dt)
+    elif dt_inicio:
+        start_dt, _ = convert_sao_paulo_date_to_utc_range(dt_inicio)
+        query = query.gte("dtRegistro", start_dt)
+    elif dt_fim:
+        _, end_dt = convert_sao_paulo_date_to_utc_range(dt_fim)
+        query = query.lte("dtRegistro", end_dt)
+
+    # aplica outros filtros
     for campo, valor in filtros.items():
         if campo == "dtRegistro":
             start_dt, end_dt = convert_sao_paulo_date_to_utc_range(valor)
@@ -542,18 +561,43 @@ def Inserir_TbEndereco(data, db_client=supabase_api):
     return resultado.data
 
 
-def Selecionar_GroupedSensorData(dispositivos: List[str], dtRegistroComeco: str = None, dtRegistroFim: str = None, db_client=supabase_api):
-    # Prepare the function call
+def convert_sao_paulo_date_to_utc_range_yyyymmdd(date_str):
+    """
+    Converts a yyyymmdd string to UTC datetimes for start (00:00:00) and end (23:59:59) in São Paulo timezone.
+    Returns (start_utc_iso, end_utc_iso)
+    """
+    tz_sp = pytz.timezone("America/Sao_Paulo")
+    date_obj = datetime.strptime(date_str, "%Y%m%d").date()
+    dt_start_sp = tz_sp.localize(datetime.combine(date_obj, time(0, 0, 0)))
+    dt_end_sp = tz_sp.localize(datetime.combine(date_obj, time(23, 59, 59)))
+    return (
+        dt_start_sp.astimezone(pytz.UTC).isoformat(),
+        dt_end_sp.astimezone(pytz.UTC).isoformat(),
+    )
+
+
+def Selecionar_GroupedSensorData(
+    dispositivos: list,
+    dtRegistroComeco: str = None,
+    dtRegistroFim: str = None,
+    db_client=supabase_api,
+):
+    # Convert dates if provided
+    if dtRegistroComeco:
+        dtRegistroComeco, _ = convert_sao_paulo_date_to_utc_range_yyyymmdd(
+            dtRegistroComeco
+        )
+    if dtRegistroFim:
+        _, dtRegistroFim = convert_sao_paulo_date_to_utc_range_yyyymmdd(dtRegistroFim)
+
     query = db_client.rpc(
         "get_grouped_sensor_data",
         {
             "dispositivos": dispositivos,
             "dt_registro_comeco": dtRegistroComeco,
             "dt_registro_fim": dtRegistroFim,
-        }
+        },
     )
 
-    # Execute the query
     resultado = query.execute()
-
     return resultado.data
