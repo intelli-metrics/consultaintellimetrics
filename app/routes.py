@@ -394,6 +394,8 @@ def get_HistoricoPaginaDispositivo(codigo):
 
     filtros = {
         "dtRegistro": request.args.get("dtRegistro"),
+        "dtRegistroComeco": request.args.get("dtRegistroComeco"),
+        "dtRegistroFim": request.args.get("dtRegistroFim"),
     }
 
     # Remove filtros que nao tem valor
