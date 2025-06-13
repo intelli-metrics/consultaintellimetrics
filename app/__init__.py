@@ -10,10 +10,7 @@ def create_app():
         app,
         resources={
             r"*": {
-                "origins": [
-                    "https://intelli-metrics.netlify.app",
-                    "https://main--intelli-metrics.netlify.app",
-                ],
+                "origins": "*",
                 "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
                 "allow_headers": ["Content-Type", "Authorization"],
                 "supports_credentials": True,
