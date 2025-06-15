@@ -503,7 +503,6 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
         "nrBatPercentual",
         "dsStatus",
         "dsStatusDispositivo",
-        "nrPessoas",
         "cdPosicao",
     ]
 
@@ -519,6 +518,12 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
     porta_df = (
         df[df["dsUnidadeMedida"] == "abertura"]
         .groupby("cdPosicao")["nrPorta"]
+        .first()
+        .reset_index()
+    )
+    pessoas_df = (
+        df[df["dsUnidadeMedida"] == "Qtde de pessoas"]
+        .groupby("cdPosicao")["nrPessoas"]
         .first()
         .reset_index()
     )
@@ -538,6 +543,7 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
     # Merge all the dataframes
     final_df = base_df.merge(temp_df, on="cdPosicao", how="left")
     final_df = final_df.merge(porta_df, on="cdPosicao", how="left")
+    final_df = final_df.merge(pessoas_df, on="cdPosicao", how="left")
     final_df = final_df.merge(pivot_df, on="cdPosicao", how="left")
 
     result_json = final_df.to_json(orient="records", date_format="iso")
