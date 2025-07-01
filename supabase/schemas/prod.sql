@@ -235,6 +235,32 @@ $$;
 ALTER FUNCTION "public"."get_clientes_user_by_produto_item"("user_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."get_grouped_sensor_data"("dispositivos" integer[], "dt_registro_comeco" timestamp without time zone DEFAULT NULL::timestamp without time zone, "dt_registro_fim" timestamp without time zone DEFAULT NULL::timestamp without time zone) RETURNS TABLE("cdDispositivo" integer, "dsTipoSensor" "text", "totalLeitura" double precision, "mediaLeitura" double precision)
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        v."cdDispositivo",
+        v."dsTipoSensor",
+        SUM(v."nrLeituraSensor") AS totalLeitura,
+        AVG(v."nrLeituraSensor") AS mediaLeitura
+    FROM
+        "VwRelHistoricoDispositivoProduto" v 
+    WHERE
+        v."cdDispositivo" = ANY(dispositivos)
+        AND (dt_registro_comeco IS NULL OR v."dtRegistro" >= dt_registro_comeco)
+        AND (dt_registro_fim IS NULL OR v."dtRegistro" <= dt_registro_fim)
+        AND v."dsTipoSensor" IN ('Camera de movimento', 'Abertura de Porta', 'Temperatura')
+    GROUP BY
+        v."cdDispositivo", v."dsTipoSensor";
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_grouped_sensor_data"("dispositivos" integer[], "dt_registro_comeco" timestamp without time zone, "dt_registro_fim" timestamp without time zone) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
@@ -844,7 +870,7 @@ CREATE OR REPLACE VIEW "public"."VwProdutosFora" WITH ("security_invoker"='true'
 ALTER TABLE "public"."VwProdutosFora" OWNER TO "postgres";
 
 
-CREATE OR REPLACE VIEW "public"."VwTbPosicaoAtual" AS
+CREATE OR REPLACE VIEW "public"."VwTbPosicaoAtual" WITH ("security_invoker"='true') AS
  SELECT "A"."cdPosicao",
     "A"."dtRegistro",
     "A"."cdDispositivo",
@@ -876,7 +902,7 @@ CREATE OR REPLACE VIEW "public"."VwTbPosicaoAtual" AS
 ALTER TABLE "public"."VwTbPosicaoAtual" OWNER TO "postgres";
 
 
-CREATE OR REPLACE VIEW "public"."VwRelDadosDispositivo" AS
+CREATE OR REPLACE VIEW "public"."VwRelDadosDispositivo" WITH ("security_invoker"='true') AS
  SELECT "A"."cdProduto",
     "A"."dsNome",
     "C"."cdDispositivo",
@@ -917,7 +943,7 @@ CREATE OR REPLACE VIEW "public"."VwRelDadosDispositivo" AS
 ALTER TABLE "public"."VwRelDadosDispositivo" OWNER TO "postgres";
 
 
-CREATE OR REPLACE VIEW "public"."VwRelHistoricoDispositivoProduto" AS
+CREATE OR REPLACE VIEW "public"."VwRelHistoricoDispositivoProduto" WITH ("security_invoker"='true') AS
  SELECT "pd"."cdProduto",
     "pd"."nrCodigo",
     "pd"."dsDescricao",
@@ -982,7 +1008,7 @@ CREATE OR REPLACE VIEW "public"."VwRelHistoricoDispositivoProduto" AS
 ALTER TABLE "public"."VwRelHistoricoDispositivoProduto" OWNER TO "postgres";
 
 
-CREATE OR REPLACE VIEW "public"."VwTbDestinatarioDispositivo" AS
+CREATE OR REPLACE VIEW "public"."VwTbDestinatarioDispositivo" WITH ("security_invoker"='true') AS
  SELECT "a"."cdDestinatario",
     "e"."dsLat",
     "e"."dsLong",
@@ -1488,42 +1514,6 @@ CREATE POLICY "Somente usuarios com acesso ao cliente" ON "public"."TbSensorRegi
 
 
 
-ALTER TABLE "public"."TbCliente" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."TbClienteChave" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."TbDestinatario" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."TbDispositivo" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."TbImagens" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."TbPosicao" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."TbProduto" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."TbProdutoItem" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."TbProdutoItemJoinTable" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."TbSensor" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."TbSensorRegistro" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."TbTipoSensor" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "apenas autenticados podem ler" ON "public"."TbProdutoItemJoinTable" FOR SELECT TO "authenticated" USING (true);
 
 
@@ -1532,7 +1522,8 @@ CREATE POLICY "apenas usuarios com acesso podem modificar" ON "public"."TbProdut
 
 
 
-ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "somente api pode fazer mudanças" ON "public"."TbEndereco" TO "service_role" USING (true);
+
 
 
 CREATE POLICY "somente api pode fazer mudanças na chave" ON "public"."TbClienteChave" TO "service_role" USING (true);
@@ -1548,6 +1539,10 @@ CREATE POLICY "somente usuarios com acesso ao cliente ou pai" ON "public"."TbCli
 
 
 CREATE POLICY "todos podem ver" ON "public"."TbClienteChave" FOR SELECT TO "anon" USING (true);
+
+
+
+CREATE POLICY "todos podem ver" ON "public"."TbEndereco" FOR SELECT TO "anon" USING (true);
 
 
 
@@ -1779,6 +1774,12 @@ GRANT ALL ON FUNCTION "public"."get_clientes_user_by_produto"("user_id" "uuid") 
 GRANT ALL ON FUNCTION "public"."get_clientes_user_by_produto_item"("user_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_clientes_user_by_produto_item"("user_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_clientes_user_by_produto_item"("user_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_grouped_sensor_data"("dispositivos" integer[], "dt_registro_comeco" timestamp without time zone, "dt_registro_fim" timestamp without time zone) TO "anon";
+GRANT ALL ON FUNCTION "public"."get_grouped_sensor_data"("dispositivos" integer[], "dt_registro_comeco" timestamp without time zone, "dt_registro_fim" timestamp without time zone) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_grouped_sensor_data"("dispositivos" integer[], "dt_registro_comeco" timestamp without time zone, "dt_registro_fim" timestamp without time zone) TO "service_role";
 
 
 
