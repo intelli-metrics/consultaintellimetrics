@@ -943,8 +943,9 @@ CREATE OR REPLACE VIEW "public"."VwRelDadosDispositivo" WITH ("security_invoker"
 ALTER TABLE "public"."VwRelDadosDispositivo" OWNER TO "postgres";
 
 
-CREATE OR REPLACE VIEW "public"."VwRelHistoricoDispositivoProduto" WITH ("security_invoker"='true') AS
+CREATE OR REPLACE VIEW "public"."VwRelHistoricoDispositivoProduto" AS
  SELECT "pd"."cdProduto",
+    "pd"."cdCliente",
     "pd"."nrCodigo",
     "pd"."dsDescricao",
     "p"."dtRegistro",

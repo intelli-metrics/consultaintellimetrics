@@ -2,7 +2,7 @@ import os
 
 from flask import Blueprint, jsonify, request
 
-from db_utils import get_supabase_client_from_request
+from db_utils import get_supabase_client_from_request, get_authenticated_client
 from db_utils.storage import upload_file
 from utils import valida_e_constroi_insert, valida_e_constroi_update
 
@@ -208,21 +208,27 @@ def post_Posicao():
     try:
         dsLat = float(payload["dsLat"])
         dsLong = float(payload["dsLong"])
-        
+
         # Validate latitude range (-90 to 90)
         if not -90 <= dsLat <= 90:
             return jsonify({"message": "Latitude deve estar entre -90 e 90 graus"}), 400
-            
+
         # Validate longitude range (-180 to 180)
         if not -180 <= dsLong <= 180:
-            return jsonify({"message": "Longitude deve estar entre -180 e 180 graus"}), 400
-            
+            return (
+                jsonify({"message": "Longitude deve estar entre -180 e 180 graus"}),
+                400,
+            )
+
         # Round to 5 decimal places and convert to string
         dsLat = str(round(dsLat, 5))
         dsLong = str(round(dsLong, 5))
-        
+
     except (ValueError, TypeError):
-        return jsonify({"message": "Latitude e longitude devem ser números válidos"}), 400
+        return (
+            jsonify({"message": "Latitude e longitude devem ser números válidos"}),
+            400,
+        )
 
     cdDispositivo = payload["cdDispositivo"]
 
@@ -413,7 +419,7 @@ def get_HistoricoPaginaDispositivo(codigo):
 
 @main.route("/VwRelHistoricoDispositivoProduto/<codigo>")
 def get_RelHistoricoDispositivoProduto(codigo):
-    supabase_client, error = get_supabase_client_from_request(request=request)
+    supabase_client, error = get_authenticated_client(request=request)
 
     if error or supabase_client is None:
         return jsonify({"message": error}), 401
@@ -495,7 +501,9 @@ def get_GroupedSensorData():
         return jsonify({"message": "Pelo menos um cdDispositivo é necessário"}), 400
 
     dispositivos = cdDispositivo.split(",")
-    raw_result = Selecionar_GroupedSensorData(dispositivos, dtRegistroComeco, dtRegistroFim)
+    raw_result = Selecionar_GroupedSensorData(
+        dispositivos, dtRegistroComeco, dtRegistroFim
+    )
 
     # Transform the raw result into the desired JSON structure
     structured_result = {"cdDispositivos": {}}
@@ -514,5 +522,3 @@ def get_GroupedSensorData():
         }
 
     return jsonify(structured_result)
-
-
