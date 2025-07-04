@@ -80,18 +80,13 @@ def get_supabase_client_from_api_key(request, required_client_id=None):
             if int(required_client_id) not in key_info["cdClientes"]:
                 return None, "Acesso negado para este cliente"
 
-        # Buscar email do usuário
-        user_response = (
-            supabase_api.table("profiles")
-            .select("email")
-            .eq("id", key_info["cdUsuario"])
-            .execute()
-        )
+        # Buscar email do usuário na tabela auth.users
+        user_response = supabase_api.auth.admin.get_user_by_id(key_info["cdUsuario"])
 
-        if not user_response.data:
+        if not user_response.user:
             return None, "Usuário não encontrado"
 
-        user_email = user_response.data[0]["email"]
+        user_email = user_response.user.email
 
         # Fazer login com o usuário de serviço
         service_password = os.getenv("SERVICE_USER_PASSWORD")
