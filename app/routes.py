@@ -38,7 +38,7 @@ main = Blueprint("main", __name__)
 
 @main.route("/TbProdutoTotalStatus/<codigo>")
 def get_TbProdutoTotalStatus(codigo):
-    supabase_client, error = get_supabase_client_from_request(request=request)
+    supabase_client, error = get_authenticated_client(request=request)
 
     if error or supabase_client is None:
         return jsonify({"message": error}), 401
@@ -78,7 +78,7 @@ def get_Destinatario(cdDestinatario):
     if not cdCliente:
         return jsonify({"message": "cdCliente necessário"}), 400
 
-    supabase_client, error = get_supabase_client_from_request(request=request)
+    supabase_client, error = get_authenticated_client(request=request)
 
     if error or supabase_client is None:
         return jsonify({"message": error}), 401
@@ -103,7 +103,7 @@ def post_Destinatario():
 
 @main.route("/Dispositivo/<codigo>")
 def get_Dispositivo(codigo):
-    supabase_client, error = get_supabase_client_from_request(request=request)
+    supabase_client, error = get_authenticated_client(request=request)
 
     if error or supabase_client is None:
         return jsonify({"message": error}), 401
@@ -162,7 +162,7 @@ def CadastraImgProduto():
 
 @main.route("/Imagens/<codigo>")
 def get_Imagens(codigo):
-    supabase_client, error = get_supabase_client_from_request(request=request)
+    supabase_client, error = get_authenticated_client(request=request)
 
     if error or supabase_client is None:
         return jsonify({"message": error}), 401
@@ -173,7 +173,7 @@ def get_Imagens(codigo):
 
 @main.route("/Posicao/<codigo>")
 def get_Posicao(codigo):
-    supabase_client, error = get_supabase_client_from_request(request=request)
+    supabase_client, error = get_authenticated_client(request=request)
 
     if error or supabase_client is None:
         return jsonify({"message": error}), 401
@@ -380,7 +380,7 @@ def post_Sensor():
 
 @main.route("/TbProdutoTipo/<codigo>")
 def get_TbProdutoTipo(codigo):
-    supabase_client, error = get_supabase_client_from_request(request=request)
+    supabase_client, error = get_authenticated_client(request=request)
 
     if error or supabase_client is None:
         return jsonify({"message": error}), 401
@@ -393,7 +393,7 @@ def get_TbProdutoTipo(codigo):
 # mas com produtos sendo retornados como colunas.
 @main.route("/HistoricoPaginaDispositivo/<codigo>")
 def get_HistoricoPaginaDispositivo(codigo):
-    supabase_client, error = get_supabase_client_from_request(request=request)
+    supabase_client, error = get_authenticated_client(request=request)
 
     if error or supabase_client is None:
         return jsonify({"message": error}), 401
@@ -444,7 +444,7 @@ def get_RelHistoricoDispositivoProduto(codigo):
 
 @main.route("/VwRelDadosDispositivo/<codigo>")
 def get_RelVwRelDadosDispositivo(codigo):
-    supabase_client, error = get_supabase_client_from_request(request=request)
+    supabase_client, error = get_authenticated_client(request=request)
 
     if error or supabase_client is None:
         return jsonify({"message": error}), 401
@@ -468,7 +468,7 @@ def get_RelVwRelDadosDispositivo(codigo):
 
 @main.route("/TbPosicaoAtual/<codigo>")
 def get_TbPosicaoAtual(codigo):
-    supabase_client, error = get_supabase_client_from_request(request=request)
+    supabase_client, error = get_authenticated_client(request=request)
 
     if error or supabase_client is None:
         return jsonify({"message": error}), 401
@@ -488,7 +488,7 @@ def get_TbPosicaoAtual(codigo):
 
 @main.route("/GroupedSensorData")
 def get_GroupedSensorData():
-    supabase_client, error = get_supabase_client_from_request(request=request)
+    supabase_client, error = get_authenticated_client(request=request)
 
     if error or supabase_client is None:
         return jsonify({"message": error}), 401
