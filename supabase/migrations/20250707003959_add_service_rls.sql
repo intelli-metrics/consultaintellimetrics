@@ -62,9 +62,9 @@ ALTER POLICY "Somente usuarios com acesso ao cliente" ON "public"."TbProduto" TO
       ) = 'service'::role
     )
     OR (
-      "cdDispositivo" = ANY (
+      "cdCliente" = ANY (
         ARRAY(
-          SELECT get_clientes_user_by_dispositivo(auth.uid()) AS get_clientes_user_by_dispositivo
+          SELECT get_clientes_user(auth.uid()) AS get_clientes_user
         )
       )
     )
