@@ -634,3 +634,22 @@ def Selecionar_GroupedSensorData(
 
     resultado = query.execute()
     return resultado.data
+
+
+# Api usada no frontend para a pagina de produtos
+def Selecionar_VwProdutoCompleto(filtros, db_client=supabase_api):
+    query = db_client.table("VwProdutoCompleto").select("*")
+
+    # Apply filters
+    for campo, valor in filtros.items():
+        if campo == "dsNome":
+            # Use ilike for case-insensitive partial matching
+            query = query.ilike(campo, f"%{valor}%")
+        else:
+            query = query.eq(campo, valor)
+
+    # Order by dtRegistro desc
+    query = query.order("dtRegistroProduto", desc=True)
+
+    resultado = query.execute()
+    return resultado.data

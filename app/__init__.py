@@ -18,9 +18,10 @@ def create_app():
         },
     )
 
-    # Register blueprints or routes
-    from .routes import main
+    # Register blueprints for different API versions
+    from .routes import main, v2
 
-    app.register_blueprint(main)
+    app.register_blueprint(main)  # Current routes without prefix (backward compatibility)
+    app.register_blueprint(v2, url_prefix="/v2")  # v2 routes with prefix
 
     return app
