@@ -35,6 +35,9 @@ from .services import (
 
 main = Blueprint("main", __name__)
 
+# Import v2 blueprint
+from .routes_v2 import v2
+
 
 @main.route("/TbProdutoTotalStatus/<codigo>")
 def get_TbProdutoTotalStatus(codigo):
