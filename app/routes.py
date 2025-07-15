@@ -528,7 +528,7 @@ def get_GroupedSensorData():
     return jsonify(structured_result)
 
 
-@main.route("/cliente/<cdCliente>/VwProdutoCompleto")
+@main.route("/cliente/<cdCliente>/produtos")
 def get_VwProdutoCompleto(cdCliente):
     supabase_client, error = get_authenticated_client(request=request)
 
