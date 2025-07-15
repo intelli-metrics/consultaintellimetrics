@@ -25,6 +25,7 @@ from .services import (
     Selecionar_VwRelDadosDispositivo,
     Selecionar_VwRelHistoricoDispositivoProduto,
     Selecionar_VwTbPosicaoAtual,
+    Selecionar_VwProdutoCompleto,
     Selecionar_VwTbProdutoTipo,
     Selecionar_VwTbProdutoTotalStatus,
     Selecionar_GroupedSensorData,
@@ -525,3 +526,23 @@ def get_GroupedSensorData():
         }
 
     return jsonify(structured_result)
+
+
+@main.route("/cliente/<cdCliente>/VwProdutoCompleto")
+def get_VwProdutoCompleto(cdCliente):
+    supabase_client, error = get_authenticated_client(request=request)
+
+    if error or supabase_client is None:
+        return jsonify({"message": error}), 401
+
+    filtros = {
+        "cdCliente": cdCliente,
+        "dsNome": request.args.get("dsNome"),
+        "cdStatus": request.args.get("cdStatus"),
+    }
+
+    # Remove filtros que nao tem valor
+    filtros = {k: v for k, v in filtros.items() if v is not None}
+
+    resultado = Selecionar_VwProdutoCompleto(filtros=filtros, db_client=supabase_client)
+    return jsonify(resultado)
