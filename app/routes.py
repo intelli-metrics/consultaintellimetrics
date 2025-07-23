@@ -17,6 +17,7 @@ from .services import (
     Inserir_TbSensor,
     Inserir_TbSensorRegistro,
     Selecionar_HistoricoPaginaDispositivo,
+    Selecionar_ListaDispositivosResumo,
     Selecionar_TbDestinatario,
     Selecionar_TbDispositivo,
     Selecionar_TbEndereco,
@@ -545,4 +546,54 @@ def get_VwProdutoCompleto(cdCliente):
     filtros = {k: v for k, v in filtros.items() if v is not None}
 
     resultado = Selecionar_VwProdutoCompleto(filtros=filtros, db_client=supabase_client)
+    return jsonify(resultado)
+
+
+# Usado para a pagina de lista de dispositivos
+@main.route("/cliente/<cdCliente>/dispositivos-resumo")
+def get_ListaDispositivosResumo(cdCliente):
+    supabase_client, error = get_authenticated_client(request=request)
+
+    if error or supabase_client is None:
+        return jsonify({"message": error}), 401
+
+    filtros = {
+        "dt_registro_inicio": request.args.get("dt_registro_inicio"),
+        "dt_registro_fim": request.args.get("dt_registro_fim"),
+        "cd_status": request.args.get("cd_status"),
+        "ds_uf": request.args.get("ds_uf"),
+        "bl_area": request.args.get("bl_area"),
+        "nr_bateria_min": request.args.get("nr_bateria_min"),
+        "nr_bateria_max": request.args.get("nr_bateria_max"),
+        "cd_cliente": cdCliente,
+    }
+
+    # Remove filtros que nao tem valor
+    filtros = {k: v for k, v in filtros.items() if v is not None}
+
+    # Convert numeric filters
+    if "nr_bateria_min" in filtros:
+        try:
+            filtros["nr_bateria_min"] = float(filtros["nr_bateria_min"])
+        except ValueError:
+            return jsonify({"message": "nr_bateria_min deve ser um número válido"}), 400
+
+    if "nr_bateria_max" in filtros:
+        try:
+            filtros["nr_bateria_max"] = float(filtros["nr_bateria_max"])
+        except ValueError:
+            return jsonify({"message": "nr_bateria_max deve ser um número válido"}), 400
+
+    # Convert boolean filter
+    if "bl_area" in filtros:
+        if filtros["bl_area"].lower() in ["true", "1", "yes"]:
+            filtros["bl_area"] = True
+        elif filtros["bl_area"].lower() in ["false", "0", "no"]:
+            filtros["bl_area"] = False
+        else:
+            return jsonify({"message": "bl_area deve ser true/false, 1/0, ou yes/no"}), 400
+
+    resultado = Selecionar_ListaDispositivosResumo(
+        filtros=filtros, db_client=supabase_client
+    )
     return jsonify(resultado)
