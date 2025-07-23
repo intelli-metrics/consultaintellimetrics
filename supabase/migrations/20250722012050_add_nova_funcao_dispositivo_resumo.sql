@@ -152,33 +152,33 @@ ALTER FUNCTION "public"."get_lista_dispositivos_resumo"("dt_registro_inicio" tim
 
 -- Indexes for TbSensorRegistro to optimize sensor data queries
 -- Composite index for time-range queries with device filtering
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_TbSensorRegistro_time_device" 
+CREATE INDEX IF NOT EXISTS "idx_TbSensorRegistro_time_device" 
 ON "public"."TbSensorRegistro" ("dtRegistro" DESC, "cdDispositivo");
 
 -- Composite index for device and sensor type queries
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_TbSensorRegistro_device_type_time" 
+CREATE INDEX IF NOT EXISTS "idx_TbSensorRegistro_device_type_time" 
 ON "public"."TbSensorRegistro" ("cdDispositivo", "cdSensor", "dtRegistro" DESC);
 
 -- Index for sensor type filtering (used in JOIN with TbSensor)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_TbSensorRegistro_sensor_time" 
+CREATE INDEX IF NOT EXISTS "idx_TbSensorRegistro_sensor_time" 
 ON "public"."TbSensorRegistro" ("cdSensor", "dtRegistro" DESC);
 
 -- Index for TbSensor to optimize JOINs
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_TbSensor_cdSensor_cdTipoSensor" 
+CREATE INDEX IF NOT EXISTS "idx_TbSensor_cdSensor_cdTipoSensor" 
 ON "public"."TbSensor" ("cdSensor", "cdTipoSensor");
 
 -- Index for TbDispositivo to optimize client and status filtering
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_TbDispositivo_cliente_status" 
+CREATE INDEX IF NOT EXISTS "idx_TbDispositivo_cliente_status" 
 ON "public"."TbDispositivo" ("cdCliente", "cdStatus");
 
 -- Index for TbPosicao to optimize device and battery filtering
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_TbPosicao_dispositivo_bateria" 
+CREATE INDEX IF NOT EXISTS "idx_TbPosicao_dispositivo_bateria" 
 ON "public"."TbPosicao" ("cdDispositivo", "nrBat");
 
 -- Index for TbEndereco to optimize UF filtering
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_TbEndereco_uf" 
+CREATE INDEX IF NOT EXISTS "idx_TbEndereco_uf" 
 ON "public"."TbEndereco" ("dsUF");
 
 -- Index for TbPosicao to optimize area filtering
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "idx_TbPosicao_area" 
+CREATE INDEX IF NOT EXISTS "idx_TbPosicao_area" 
 ON "public"."TbPosicao" ("blArea");
