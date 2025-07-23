@@ -1,3 +1,5 @@
+
+
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
@@ -267,6 +269,136 @@ $$;
 
 
 ALTER FUNCTION "public"."get_grouped_sensor_data"("dispositivos" integer[], "dt_registro_comeco" timestamp without time zone, "dt_registro_fim" timestamp without time zone) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_lista_dispositivos_resumo"("dt_registro_inicio" timestamp without time zone DEFAULT NULL::timestamp without time zone, "dt_registro_fim" timestamp without time zone DEFAULT NULL::timestamp without time zone, "cd_status" "public"."status" DEFAULT NULL::"public"."status", "ds_uf" "text" DEFAULT NULL::"text", "bl_area" boolean DEFAULT NULL::boolean, "nr_bateria_min" double precision DEFAULT NULL::double precision, "nr_bateria_max" double precision DEFAULT NULL::double precision, "cd_cliente" integer DEFAULT NULL::integer) RETURNS TABLE("cdDispositivo" integer, "dsDispositivo" "text", "cdStatus" "public"."status", "dsLogradouro" "text", "nrNumero" "text", "dsComplemento" "text", "dsCidade" "text", "dsUF" "text", "blArea" boolean, "nrBat" double precision, "nrPorta" numeric, "nrPessoas" numeric, "nrTemp" numeric, "nrItens" integer)
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT DISTINCT
+        d."cdDispositivo",
+        d."dsDispositivo",
+        d."cdStatus",
+        e."dsLogradouro",
+        e."nrNumero",
+        e."dsComplemento",
+        e."dsCidade",
+        e."dsUF",
+        p."blArea",
+        p."nrBat",
+        COALESCE(porta_sensor."nrPorta", 0) AS "nrPorta",
+        COALESCE(pessoas_sensor."nrPessoas", 0) AS "nrPessoas",
+        COALESCE(temp_sensor."nrTemp", 0) AS "nrTemp",
+        COALESCE(peso_itens."nrItensPeso", 0) + COALESCE(distancia_itens."nrItensDistancia", 0) AS "nrItens"
+    FROM
+        "public"."TbDispositivo" d
+        LEFT JOIN (
+            SELECT DISTINCT ON (p."cdDispositivo") 
+                p."cdDispositivo",
+                p."blArea",
+                p."nrBat"
+            FROM "public"."TbPosicao" p
+            ORDER BY p."cdDispositivo", p."dtRegistro" DESC
+        ) p ON d."cdDispositivo" = p."cdDispositivo"
+        LEFT JOIN "public"."TbDestinatario" dest ON d."cdDestinatario" = dest."cdDestinatario"
+        LEFT JOIN "public"."TbEndereco" e ON dest."cdEndereco" = e."cdEndereco"
+        LEFT JOIN (
+            SELECT 
+                sr."cdDispositivo",
+                SUM(sr."nrValor") AS "nrPorta"
+            FROM 
+                "public"."TbSensorRegistro" sr
+                JOIN "public"."TbSensor" s ON sr."cdSensor" = s."cdSensor"
+            WHERE 
+                s."cdTipoSensor" = 2
+                AND (dt_registro_inicio IS NULL OR sr."dtRegistro" >= dt_registro_inicio)
+                AND (dt_registro_fim IS NULL OR sr."dtRegistro" <= dt_registro_fim)
+            GROUP BY 
+                sr."cdDispositivo"
+        ) porta_sensor ON d."cdDispositivo" = porta_sensor."cdDispositivo"
+        LEFT JOIN (
+            SELECT 
+                sr."cdDispositivo",
+                SUM(sr."nrValor") AS "nrPessoas"
+            FROM 
+                "public"."TbSensorRegistro" sr
+                JOIN "public"."TbSensor" s ON sr."cdSensor" = s."cdSensor"
+            WHERE 
+                s."cdTipoSensor" = 5
+                AND (dt_registro_inicio IS NULL OR sr."dtRegistro" >= dt_registro_inicio)
+                AND (dt_registro_fim IS NULL OR sr."dtRegistro" <= dt_registro_fim)
+            GROUP BY 
+                sr."cdDispositivo"
+        ) pessoas_sensor ON d."cdDispositivo" = pessoas_sensor."cdDispositivo"
+        LEFT JOIN (
+            SELECT 
+                sr."cdDispositivo",
+                AVG(sr."nrValor") AS "nrTemp"
+            FROM 
+                "public"."TbSensorRegistro" sr
+                JOIN "public"."TbSensor" s ON sr."cdSensor" = s."cdSensor"
+            WHERE 
+                s."cdTipoSensor" = 4
+                AND (dt_registro_inicio IS NULL OR sr."dtRegistro" >= dt_registro_inicio)
+                AND (dt_registro_fim IS NULL OR sr."dtRegistro" <= dt_registro_fim)
+            GROUP BY 
+                sr."cdDispositivo"
+        ) temp_sensor ON d."cdDispositivo" = temp_sensor."cdDispositivo"
+        LEFT JOIN (
+            SELECT 
+                sr."cdDispositivo",
+                AVG(CASE 
+                    WHEN pi."nrPesoUnit" > 0 THEN sr."nrValor" / pi."nrPesoUnit"
+                    ELSE 0 
+                END)::integer AS "nrItensPeso"
+            FROM 
+                "public"."TbSensorRegistro" sr
+                JOIN "public"."TbSensor" s ON sr."cdSensor" = s."cdSensor"
+                JOIN "public"."TbDispositivo" d ON sr."cdDispositivo" = d."cdDispositivo"
+                JOIN "public"."TbProduto" p ON d."cdProduto" = p."cdProduto"
+                JOIN "public"."TbProdutoItemJoinTable" pijt ON p."cdProduto" = pijt."cdProduto"
+                JOIN "public"."TbProdutoItem" pi ON pijt."cdProdutoItem" = pi."cdProdutoItem"
+            WHERE 
+                s."cdTipoSensor" = 3
+                AND (dt_registro_inicio IS NULL OR sr."dtRegistro" >= dt_registro_inicio)
+                AND (dt_registro_fim IS NULL OR sr."dtRegistro" <= dt_registro_fim)
+            GROUP BY 
+                sr."cdDispositivo"
+        ) peso_itens ON d."cdDispositivo" = peso_itens."cdDispositivo"
+        LEFT JOIN (
+            SELECT 
+                sr."cdDispositivo",
+                AVG(CASE 
+                    WHEN pi."nrAlt" > 0 THEN sr."nrValor" / pi."nrAlt"
+                    ELSE 0 
+                END)::integer AS "nrItensDistancia"
+            FROM 
+                "public"."TbSensorRegistro" sr
+                JOIN "public"."TbSensor" s ON sr."cdSensor" = s."cdSensor"
+                JOIN "public"."TbDispositivo" d ON sr."cdDispositivo" = d."cdDispositivo"
+                JOIN "public"."TbProduto" p ON d."cdProduto" = p."cdProduto"
+                JOIN "public"."TbProdutoItemJoinTable" pijt ON p."cdProduto" = pijt."cdProduto"
+                JOIN "public"."TbProdutoItem" pi ON pijt."cdProdutoItem" = pi."cdProdutoItem"
+            WHERE 
+                s."cdTipoSensor" = 1
+                AND (dt_registro_inicio IS NULL OR sr."dtRegistro" >= dt_registro_inicio)
+                AND (dt_registro_fim IS NULL OR sr."dtRegistro" <= dt_registro_fim)
+            GROUP BY 
+                sr."cdDispositivo"
+        ) distancia_itens ON d."cdDispositivo" = distancia_itens."cdDispositivo"
+    WHERE
+        (cd_status IS NULL OR d."cdStatus" = cd_status)
+        AND (ds_uf IS NULL OR e."dsUF" = ds_uf)
+        AND (bl_area IS NULL OR p."blArea" = bl_area)
+        AND (nr_bateria_min IS NULL OR p."nrBat" >= nr_bateria_min)
+        AND (nr_bateria_max IS NULL OR p."nrBat" <= nr_bateria_max)
+        AND (cd_cliente IS NULL OR d."cdCliente" = cd_cliente);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_lista_dispositivos_resumo"("dt_registro_inicio" timestamp without time zone, "dt_registro_fim" timestamp without time zone, "cd_status" "public"."status", "ds_uf" "text", "bl_area" boolean, "nr_bateria_min" double precision, "nr_bateria_max" double precision, "cd_cliente" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
@@ -876,6 +1008,68 @@ ALTER TABLE "public"."TbTipoSensor" ALTER COLUMN "id" ADD GENERATED BY DEFAULT A
     CACHE 1
 );
 
+
+
+CREATE OR REPLACE VIEW "public"."VwProdutoCompleto" WITH ("security_invoker"='true') AS
+ SELECT "p"."cdProduto",
+    "p"."dsNome" AS "dsNomeProduto",
+    "p"."cdStatus" AS "cdStatusProduto",
+    "p"."dtRegistro" AS "dtRegistroProduto",
+    "p"."cdCliente",
+    "img"."dsCaminho" AS "dsCaminhoImagem",
+    "img"."cdCodigo" AS "cdCodigoImagem",
+    "img"."nrImagem",
+    ( SELECT "string_agg"(DISTINCT "ts2"."dsNome", ', '::"text" ORDER BY "ts2"."dsNome") AS "string_agg"
+           FROM (("public"."TbDispositivo" "d2"
+             LEFT JOIN "public"."TbSensor" "s2" ON (("d2"."cdDispositivo" = "s2"."cdDispositivo")))
+             LEFT JOIN "public"."TbTipoSensor" "ts2" ON (("s2"."cdTipoSensor" = "ts2"."id")))
+          WHERE ("d2"."cdProduto" = "p"."cdProduto")) AS "dsTiposSensores",
+    "count"(
+        CASE
+            WHEN ("d"."cdStatus" = 'ativo'::"public"."status") THEN 1
+            ELSE NULL::integer
+        END) AS "nrDispositivosAtivos",
+    "count"(
+        CASE
+            WHEN ("d"."cdStatus" = 'inativo'::"public"."status") THEN 1
+            ELSE NULL::integer
+        END) AS "nrDispositivosInativos",
+    "count"(
+        CASE
+            WHEN ("d"."cdStatus" = 'suspenso'::"public"."status") THEN 1
+            ELSE NULL::integer
+        END) AS "nrDispositivosSuspensos",
+    "count"(
+        CASE
+            WHEN ("d"."cdStatus" = 'bloqueado'::"public"."status") THEN 1
+            ELSE NULL::integer
+        END) AS "nrDispositivosBloqueados",
+    "count"(
+        CASE
+            WHEN ("d"."cdStatus" = 'encerrado'::"public"."status") THEN 1
+            ELSE NULL::integer
+        END) AS "nrDispositivosEncerrados",
+    "count"(
+        CASE
+            WHEN ("d"."cdStatus" = 'estoque'::"public"."status") THEN 1
+            ELSE NULL::integer
+        END) AS "nrDispositivosEstoque",
+    "count"(
+        CASE
+            WHEN ("d"."cdStatus" IS NULL) THEN 1
+            ELSE NULL::integer
+        END) AS "nrDispositivosSemStatus",
+    "count"("d"."cdDispositivo") AS "nrTotalDispositivos"
+   FROM (("public"."TbProduto" "p"
+     LEFT JOIN "public"."TbImagens" "img" ON ((("p"."cdProduto" = "img"."cdProduto") AND ("img"."nrImagem" = ( SELECT "min"("img2"."nrImagem") AS "min"
+           FROM "public"."TbImagens" "img2"
+          WHERE ("img2"."cdProduto" = "p"."cdProduto"))))))
+     JOIN "public"."TbDispositivo" "d" ON (("p"."cdProduto" = "d"."cdProduto")))
+  GROUP BY "p"."cdProduto", "p"."dsNome", "p"."cdStatus", "p"."dtRegistro", "p"."cdCliente", "img"."dsCaminho", "img"."cdCodigo", "img"."nrImagem"
+  ORDER BY "p"."dsNome";
+
+
+ALTER TABLE "public"."VwProdutoCompleto" OWNER TO "postgres";
 
 
 CREATE OR REPLACE VIEW "public"."VwProdutosFora" WITH ("security_invoker"='true') AS
@@ -1523,11 +1717,15 @@ CREATE POLICY "Enable read access for all users" ON "public"."profiles" FOR SELE
 
 
 
-CREATE POLICY "Somente usuarios com acesso ao cliente" ON "public"."TbDestinatario" TO "authenticated" USING (("cdCliente" = ANY (ARRAY( SELECT "public"."get_clientes_user"("auth"."uid"()) AS "get_clientes_user"))));
+CREATE POLICY "Somente usuarios com acesso ao cliente" ON "public"."TbDestinatario" TO "authenticated" USING (((( SELECT "profiles"."role"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"())) = 'service'::"public"."role") OR ("cdCliente" = ANY (ARRAY( SELECT "public"."get_clientes_user"("auth"."uid"()) AS "get_clientes_user")))));
 
 
 
-CREATE POLICY "Somente usuarios com acesso ao cliente" ON "public"."TbDispositivo" TO "authenticated" USING (("cdCliente" = ANY (ARRAY( SELECT "public"."get_clientes_user"("auth"."uid"()) AS "get_clientes_user"))));
+CREATE POLICY "Somente usuarios com acesso ao cliente" ON "public"."TbDispositivo" TO "authenticated" USING (((( SELECT "profiles"."role"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"())) = 'service'::"public"."role") OR ("cdCliente" = ANY (ARRAY( SELECT "public"."get_clientes_user"("auth"."uid"()) AS "get_clientes_user")))));
 
 
 
@@ -1535,11 +1733,15 @@ CREATE POLICY "Somente usuarios com acesso ao cliente" ON "public"."TbImagens" T
 
 
 
-CREATE POLICY "Somente usuarios com acesso ao cliente" ON "public"."TbPosicao" TO "authenticated" USING (("cdDispositivo" = ANY (ARRAY( SELECT "public"."get_clientes_user_by_dispositivo"("auth"."uid"()) AS "get_clientes_user_by_dispositivo"))));
+CREATE POLICY "Somente usuarios com acesso ao cliente" ON "public"."TbPosicao" TO "authenticated" USING (((( SELECT "profiles"."role"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"())) = 'service'::"public"."role") OR ("cdDispositivo" = ANY (ARRAY( SELECT "public"."get_clientes_user_by_dispositivo"("auth"."uid"()) AS "get_clientes_user_by_dispositivo")))));
 
 
 
-CREATE POLICY "Somente usuarios com acesso ao cliente" ON "public"."TbProduto" TO "authenticated" USING (("cdCliente" = ANY (ARRAY( SELECT "public"."get_clientes_user"("auth"."uid"()) AS "get_clientes_user"))));
+CREATE POLICY "Somente usuarios com acesso ao cliente" ON "public"."TbProduto" TO "authenticated" USING (((( SELECT "profiles"."role"
+   FROM "public"."profiles"
+  WHERE ("profiles"."id" = "auth"."uid"())) = 'service'::"public"."role") OR ("cdCliente" = ANY (ARRAY( SELECT "public"."get_clientes_user"("auth"."uid"()) AS "get_clientes_user")))));
 
 
 
@@ -1824,6 +2026,12 @@ GRANT ALL ON FUNCTION "public"."get_grouped_sensor_data"("dispositivos" integer[
 
 
 
+GRANT ALL ON FUNCTION "public"."get_lista_dispositivos_resumo"("dt_registro_inicio" timestamp without time zone, "dt_registro_fim" timestamp without time zone, "cd_status" "public"."status", "ds_uf" "text", "bl_area" boolean, "nr_bateria_min" double precision, "nr_bateria_max" double precision, "cd_cliente" integer) TO "anon";
+GRANT ALL ON FUNCTION "public"."get_lista_dispositivos_resumo"("dt_registro_inicio" timestamp without time zone, "dt_registro_fim" timestamp without time zone, "cd_status" "public"."status", "ds_uf" "text", "bl_area" boolean, "nr_bateria_min" double precision, "nr_bateria_max" double precision, "cd_cliente" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_lista_dispositivos_resumo"("dt_registro_inicio" timestamp without time zone, "dt_registro_fim" timestamp without time zone, "cd_status" "public"."status", "ds_uf" "text", "bl_area" boolean, "nr_bateria_min" double precision, "nr_bateria_max" double precision, "cd_cliente" integer) TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "anon";
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
@@ -2085,6 +2293,12 @@ GRANT ALL ON TABLE "public"."TbTipoSensor" TO "service_role";
 GRANT ALL ON SEQUENCE "public"."TbTipoSensor_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."TbTipoSensor_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."TbTipoSensor_id_seq" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."VwProdutoCompleto" TO "anon";
+GRANT ALL ON TABLE "public"."VwProdutoCompleto" TO "authenticated";
+GRANT ALL ON TABLE "public"."VwProdutoCompleto" TO "service_role";
 
 
 
