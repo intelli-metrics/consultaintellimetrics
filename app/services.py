@@ -717,4 +717,4 @@ def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
         dsNome = None
 
     resultado = query.execute()
-    return {"dispositivos": resultado.data, "nome_produto": dsNome}
+    return {"dispositivos": resultado.data, "nomeProduto": dsNome}
