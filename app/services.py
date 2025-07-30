@@ -658,11 +658,11 @@ def Selecionar_VwProdutoCompleto(filtros, db_client=supabase_api):
 def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
     """
     Call the get_lista_dispositivos_resumo function with the provided filters.
-    
+
     Args:
         filtros (dict): Dictionary containing filter parameters:
             - dt_registro_inicio: Start date for sensor records
-            - dt_registro_fim: End date for sensor records  
+            - dt_registro_fim: End date for sensor records
             - cd_status: Device status filter
             - ds_uf: State filter
             - bl_area: Area flag filter
@@ -671,18 +671,18 @@ def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
             - cd_cliente: Client filter
             - cd_produto: Product filter
         db_client: Supabase client instance
-    
+
     Returns:
         dict: Query result data
     """
     # Convert date strings to proper format if provided
     dt_registro_inicio = filtros.get("dt_registro_inicio")
     dt_registro_fim = filtros.get("dt_registro_fim")
-    
+
     if dt_registro_inicio:
         start_dt, _ = convert_sao_paulo_date_to_utc_range(dt_registro_inicio)
         dt_registro_inicio = start_dt
-    
+
     if dt_registro_fim:
         _, end_dt = convert_sao_paulo_date_to_utc_range(dt_registro_fim)
         dt_registro_fim = end_dt
@@ -703,5 +703,18 @@ def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
         },
     )
 
+    # busca nome do produto
+    query_produto = (
+        db_client.table("TbProduto")
+        .select("dsNome")
+        .eq("cdProduto", filtros.get("cd_produto"))
+    )
+    resultado_produto = query_produto.execute()
+
+    if len(resultado_produto.data) > 0:
+        dsNome = resultado_produto.data[0]["dsNome"]
+    else:
+        dsNome = None
+
     resultado = query.execute()
-    return resultado.data
+    return {"dispositivos": resultado.data, "nome_produto": dsNome}
