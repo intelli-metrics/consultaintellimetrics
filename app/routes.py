@@ -550,8 +550,8 @@ def get_VwProdutoCompleto(cdCliente):
 
 
 # Usado para a pagina de lista de dispositivos
-@main.route("/cliente/<cdCliente>/dispositivos-resumo")
-def get_ListaDispositivosResumo(cdCliente):
+@main.route("/cliente/<cdCliente>/produto/<cdProduto>/dispositivos-resumo")
+def get_ListaDispositivosResumo(cdCliente, cdProduto):
     supabase_client, error = get_authenticated_client(request=request)
 
     if error or supabase_client is None:
@@ -566,6 +566,7 @@ def get_ListaDispositivosResumo(cdCliente):
         "nr_bateria_min": request.args.get("nr_bateria_min"),
         "nr_bateria_max": request.args.get("nr_bateria_max"),
         "cd_cliente": cdCliente,
+        "cd_produto": cdProduto,
     }
 
     # Remove filtros que nao tem valor

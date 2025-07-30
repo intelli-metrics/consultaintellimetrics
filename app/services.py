@@ -669,6 +669,7 @@ def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
             - nr_bateria_min: Minimum battery level
             - nr_bateria_max: Maximum battery level
             - cd_cliente: Client filter
+            - cd_produto: Product filter
         db_client: Supabase client instance
     
     Returns:
@@ -698,6 +699,7 @@ def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
             "nr_bateria_min": filtros.get("nr_bateria_min"),
             "nr_bateria_max": filtros.get("nr_bateria_max"),
             "cd_cliente": filtros.get("cd_cliente"),
+            "cd_produto": filtros.get("cd_produto"),
         },
     )
 
