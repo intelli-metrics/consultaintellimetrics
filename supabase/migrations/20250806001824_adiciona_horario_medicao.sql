@@ -31,11 +31,11 @@ BEGIN
              (CASE 
                 -- Handle midnight crossing (e.g., 11:00 to 01:00)
                 WHEN d."horarioMedicaoInicio" > d."horarioMedicaoFim" THEN
-                    EXTRACT(time FROM v."dtRegistro")::time >= d."horarioMedicaoInicio" 
-                    OR EXTRACT(time FROM v."dtRegistro")::time <= d."horarioMedicaoFim"
+                    CAST(v."dtRegistro" AS time) >= d."horarioMedicaoInicio" 
+                    OR CAST(v."dtRegistro" AS time) <= d."horarioMedicaoFim"
                 ELSE
-                    EXTRACT(time FROM v."dtRegistro")::time >= d."horarioMedicaoInicio" 
-                    AND EXTRACT(time FROM v."dtRegistro")::time <= d."horarioMedicaoFim"
+                    CAST(v."dtRegistro" AS time) >= d."horarioMedicaoInicio" 
+                    AND CAST(v."dtRegistro" AS time) <= d."horarioMedicaoFim"
              END))
     GROUP BY
         v."cdDispositivo", v."dsTipoSensor";
