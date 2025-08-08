@@ -438,8 +438,51 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
     if len(resultado) == 0:
         return resultado
 
-    # processa cada linha para calcular nrQtdItens e nrTemperatura baseado no tipo de sensor
+    # Get device configurations for time filtering
+    dispositivos = list(set(row["cdDispositivo"] for row in resultado))
+    horarios = db_client.table("TbDispositivo").select(
+        "cdDispositivo", "horarioMedicaoInicio", "horarioMedicaoFim"
+    ).in_("cdDispositivo", dispositivos).execute().data
+
+    # Create a dict for quick lookup
+    horarios_dict = {
+        d["cdDispositivo"]: (d["horarioMedicaoInicio"], d["horarioMedicaoFim"])
+        for d in horarios
+    }
+
+    # filtra por horario de medição. Remover dados fora do horario de medição.
+    filtered_resultado = []
     for row in resultado:
+        horario = horarios_dict.get(row["cdDispositivo"])
+        if not horario or horario[0] is None:  # No time restriction
+            filtered_resultado.append(row)
+            continue
+
+        inicio_str, fim_str = horario
+        
+        # Convert string times to datetime.time objects
+        try:
+            inicio = datetime.strptime(inicio_str, "%H:%M:%S").time() if inicio_str else None
+            fim = datetime.strptime(fim_str, "%H:%M:%S").time() if fim_str else None
+            hora = datetime.fromisoformat(row["dtRegistro"]).time()
+            print(inicio, fim, hora)
+        except (ValueError, TypeError):
+            # If there's any error converting the times, skip filtering for this row
+            filtered_resultado.append(row)
+            continue
+            
+        # Check if time is within range
+        if inicio > fim:  # Crosses midnight
+            if hora >= inicio or hora <= fim:
+                print("dentro do horario")
+                filtered_resultado.append(row)
+        else:  # Normal range
+            if inicio <= hora <= fim:
+                print("dentro do horario")
+                filtered_resultado.append(row)
+
+    # processa cada linha para calcular nrQtdItens e nrTemperatura baseado no tipo de sensor
+    for row in filtered_resultado:
         if row["dsUnidadeMedida"] == "celcius":
             row["nrTemperatura"] = row["nrLeituraSensor"]
             row["nrQtdItens"] = 0
@@ -460,9 +503,12 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
         elif row["dsUnidadeMedida"] == "unidade":
             row["nrQtdItens"] = row["nrLeituraSensor"]
             row["nrTemperatura"] = 0
+    
+    if len(filtered_resultado) == 0:
+        return filtered_resultado
 
     # converte em pandas dataframe
-    df = pd.DataFrame(resultado)
+    df = pd.DataFrame(filtered_resultado)
 
     # Create base dataframe with non-sensor specific columns
     base_columns = [

@@ -26,7 +26,7 @@ BEGIN
         AND (dt_registro_comeco IS NULL OR v."dtRegistro" >= dt_registro_comeco)
         AND (dt_registro_fim IS NULL OR v."dtRegistro" <= dt_registro_fim)
         AND v."dsTipoSensor" IN ('Camera de movimento', 'Abertura de Porta', 'Temperatura')
-        -- Filter by measurement hours if configured
+        -- Filtro por horário de medição. Nao coletar dados fora do horario de medição.
         AND (d."horarioMedicaoInicio" IS NULL OR 
              (CASE 
                 -- Handle midnight crossing (e.g., 11:00 to 01:00)
