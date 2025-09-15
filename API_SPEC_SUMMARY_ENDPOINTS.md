@@ -170,7 +170,6 @@ GET /api/v2/summary/temperatura
 ## Implementation TODO
 
 ### 1. Database Analysis & Query Planning
-- [ ] Analyze existing data to understand typical record volumes
 - [ ] Create efficient SQL queries for each sensor type aggregation
 - [ ] Design indexes if needed for `TbSensorRegistro` (cdDispositivo, dtRegistro, cdSensor)
 - [ ] Plan date/time aggregation functions for PostgreSQL (daily vs hourly grouping)
@@ -249,9 +248,3 @@ GET /api/v2/summary/temperatura
 - **Validation**: Validate all input parameters before database queries
 - **Testing**: Test each endpoint with various parameter combinations
 - **Documentation**: Update this spec as implementation progresses
-
-## Future Enhancements
-- Real-time data updates via WebSockets
-- Additional aggregation types (weekly, monthly)
-- Export functionality for aggregated data
-- Historical data comparison features 
