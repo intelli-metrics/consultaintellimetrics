@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from db_utils import get_supabase_client_from_request, get_authenticated_client
 from db_utils.storage import upload_file
-from utils import valida_e_constroi_insert, valida_e_constroi_update
+from utils import valida_e_constroi_insert, valida_e_constroi_update, validate_date_range
 
 from .services import (
     Alterar_TbProduto,
@@ -30,6 +30,7 @@ from .services import (
     Selecionar_VwTbProdutoTipo,
     Selecionar_VwTbProdutoTotalStatus,
     Selecionar_GroupedSensorData,
+    get_abertura_porta_hourly_aggregation,
     get_endereco_coordenada,
     is_dentro_area,
     prepara_insert_registros,
@@ -598,3 +599,108 @@ def get_ListaDispositivosResumo(cdCliente, cdProduto):
         filtros=filtros, db_client=supabase_client
     )
     return jsonify(resultado)
+
+
+@main.route("/v1/summary/abertura-porta", methods=["GET"])
+def get_abertura_porta_summary():
+    """
+    Get door opening sensor summary data with hourly aggregation
+    """
+    # Get authenticated client
+    supabase_client, error = get_authenticated_client(request=request)
+    
+    if error or supabase_client is None:
+        return jsonify({"error": error, "error_code": "AUTHENTICATION_ERROR"}), 401
+    
+    try:
+        # Get required parameters
+        cd_produto = request.args.get('cdProduto')
+        dt_registro_inicio = request.args.get('dtRegistroInicio')
+        dt_registro_fim = request.args.get('dtRegistroFim')
+        
+        # Validate required parameters
+        if not cd_produto:
+            return jsonify({
+                "error": "cdProduto parameter is required",
+                "error_code": "MISSING_PARAMETER"
+            }), 400
+            
+        if not dt_registro_inicio:
+            return jsonify({
+                "error": "dtRegistroInicio parameter is required",
+                "error_code": "MISSING_PARAMETER"
+            }), 400
+            
+        if not dt_registro_fim:
+            return jsonify({
+                "error": "dtRegistroFim parameter is required",
+                "error_code": "MISSING_PARAMETER"
+            }), 400
+        
+        # Validate date formats and range
+        is_valid, error_message, error_code, parsed_dates = validate_date_range(
+            dt_registro_inicio, dt_registro_fim
+        )
+        
+        if not is_valid:
+            return jsonify({
+                "error": error_message,
+                "error_code": error_code
+            }), 400
+        
+        # Convert cd_produto to integer
+        try:
+            cd_produto = int(cd_produto)
+        except ValueError:
+            return jsonify({
+                "error": "cdProduto must be a valid integer",
+                "error_code": "INVALID_PARAMETER"
+            }), 400
+        
+        # Get optional device filter
+        cd_dispositivos = request.args.getlist('cdDispositivos[]')
+        if cd_dispositivos:
+            try:
+                cd_dispositivos = [int(d) for d in cd_dispositivos]
+            except ValueError:
+                return jsonify({
+                    "error": "cdDispositivos must be valid integers",
+                    "error_code": "INVALID_PARAMETER"
+                }), 400
+        
+        # Call service function
+        result = get_abertura_porta_hourly_aggregation(
+            cd_produto=cd_produto,
+            dt_inicio=dt_registro_inicio,
+            dt_fim=dt_registro_fim,
+            cd_dispositivos=cd_dispositivos if cd_dispositivos else None,
+            db_client=supabase_client
+        )
+        
+        # Build response
+        response = {
+            "metadata": {
+                "last_read": result.get("last_read"),
+                "aggregation_type": "hourly",
+                "date_range": {
+                    "start": dt_registro_inicio,
+                    "end": dt_registro_fim
+                }
+            },
+            "data": {
+                "hourly": result.get("hourly", {}),
+                "total": result.get("total", 0),
+                "average_hourly": result.get("average_hourly", 0),
+                "record_count": result.get("record_count", 0)
+            }
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        print(f"Error in get_abertura_porta_summary: {e}")
+        return jsonify({
+            "error": "Internal server error",
+            "error_code": "INTERNAL_ERROR",
+            "details": str(e)
+        }), 500

@@ -764,3 +764,61 @@ def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
 
     resultado = query.execute()
     return {"dispositivos": resultado.data, "nomeProduto": dsNome}
+
+
+def get_abertura_porta_hourly_aggregation(cd_produto, dt_inicio, dt_fim, cd_dispositivos=None, db_client=supabase_api):
+    """
+    Get hourly aggregation for door opening sensors
+    
+    Args:
+        cd_produto (int): Product ID
+        dt_inicio (str): Start date in ISO format
+        dt_fim (str): End date in ISO format
+        cd_dispositivos (list, optional): List of device IDs to filter
+        db_client: Supabase client instance
+    
+    Returns:
+        dict: Aggregated data with hourly breakdown
+    """
+    try:
+        # Call the RPC function
+        response = db_client.rpc(
+            'get_abertura_porta_hourly_aggregation',
+            {
+                'p_cd_produto': cd_produto,
+                'p_dt_inicio': dt_inicio,
+                'p_dt_fim': dt_fim,
+                'p_cd_dispositivos': cd_dispositivos
+            }
+        ).execute()
+        
+        # Process the results
+        hourly_data = {}
+        total_value = 0
+        total_records = 0
+        last_read_timestamp = None
+        
+        for row in response.data:
+            hour_key = f"{row['hour_of_day']:02d}"  # Format as "00", "01", etc.
+            hourly_data[hour_key] = row['total_value']
+            total_value += row['total_value']
+            total_records += row['record_count']
+            
+            # Track the most recent timestamp
+            if row['last_read'] and (last_read_timestamp is None or row['last_read'] > last_read_timestamp):
+                last_read_timestamp = row['last_read']
+        
+        # Calculate average
+        average_hourly = total_value / 24 if total_value > 0 else 0
+        
+        return {
+            "hourly": hourly_data,
+            "total": total_value,
+            "average_hourly": round(average_hourly, 2),
+            "record_count": total_records,
+            "last_read": last_read_timestamp
+        }
+        
+    except Exception as e:
+        print(f"Error in get_abertura_porta_hourly_aggregation: {e}")
+        raise e

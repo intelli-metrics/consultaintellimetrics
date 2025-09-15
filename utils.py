@@ -169,3 +169,35 @@ def convert_sao_paulo_date_to_utc_range(date_str: str):
     # Return as formatted strings
     return (start_of_day_utc.strftime('%Y-%m-%d %H:%M:%S'),
             end_of_day_utc.strftime('%Y-%m-%d %H:%M:%S'))
+
+
+def validate_date_range(start_date_str, end_date_str):
+    """
+    Validates date format and range for API parameters.
+    
+    Args:
+        start_date_str (str): Start date in ISO 8601 format
+        end_date_str (str): End date in ISO 8601 format
+    
+    Returns:
+        tuple: (is_valid, error_message, error_code, parsed_dates)
+        - is_valid (bool): True if dates are valid
+        - error_message (str): Error message if invalid, None if valid
+        - error_code (str): Error code if invalid, None if valid
+        - parsed_dates (tuple): (start_dt, end_dt) if valid, (None, None) if invalid
+    """
+    try:
+        # Try to parse the dates to validate format
+        start_dt = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+        end_dt = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
+        
+        # Validate date range
+        if start_dt >= end_dt:
+            return False, "dtRegistroInicio must be before dtRegistroFim", "INVALID_DATE_RANGE", (None, None)
+        
+        return True, None, None, (start_dt, end_dt)
+        
+    except ValueError as e:
+        return False, "Invalid date format. Expected ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ)", "INVALID_DATE_FORMAT", (None, None)
+    except Exception as e:
+        return False, "Error parsing date range", "DATE_PARSING_ERROR", (None, None)
