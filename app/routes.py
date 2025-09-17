@@ -615,8 +615,8 @@ def get_abertura_porta_summary():
     try:
         # Get required parameters
         cd_produto = request.args.get('cdProduto')
-        dt_registro_inicio = request.args.get('dtRegistroInicio')
-        dt_registro_fim = request.args.get('dtRegistroFim')
+        dt_registro_inicio = request.args.get('dt_registro_inicio')
+        dt_registro_fim = request.args.get('dt_registro_fim')
         
         # Validate required parameters
         if not cd_produto:
@@ -627,13 +627,13 @@ def get_abertura_porta_summary():
             
         if not dt_registro_inicio:
             return jsonify({
-                "error": "dtRegistroInicio parameter is required",
+                "error": "dt_registro_inicio parameter is required",
                 "error_code": "MISSING_PARAMETER"
             }), 400
             
         if not dt_registro_fim:
             return jsonify({
-                "error": "dtRegistroFim parameter is required",
+                "error": "dt_registro_fim parameter is required",
                 "error_code": "MISSING_PARAMETER"
             }), 400
         
