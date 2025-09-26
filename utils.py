@@ -192,7 +192,7 @@ def validate_date_range(start_date_str, end_date_str):
         end_dt = datetime.fromisoformat(end_date_str.replace('Z', '+00:00'))
         
         # Validate date range
-        if start_dt >= end_dt:
+        if start_dt > end_dt:
             return False, "dtRegistroInicio must be before dtRegistroFim", "INVALID_DATE_RANGE", (None, None)
         
         return True, None, None, (start_dt, end_dt)

@@ -558,6 +558,13 @@ def get_ListaDispositivosResumo(cdCliente, cdProduto):
     if error or supabase_client is None:
         return jsonify({"message": error}), 401
 
+    # Convert path parameters to integers
+    try:
+        cdCliente = int(cdCliente)
+        cdProduto = int(cdProduto)
+    except ValueError:
+        return jsonify({"message": "cdCliente and cdProduto must be valid integers"}), 400
+
     filtros = {
         "dt_registro_inicio": request.args.get("dt_registro_inicio"),
         "dt_registro_fim": request.args.get("dt_registro_fim"),
@@ -617,6 +624,7 @@ def get_abertura_porta_summary():
         cd_produto = request.args.get('cdProduto')
         dt_registro_inicio = request.args.get('dt_registro_inicio')
         dt_registro_fim = request.args.get('dt_registro_fim')
+        cd_cliente = request.args.get('cdCliente')
         
         # Validate required parameters
         if not cd_produto:
@@ -657,6 +665,16 @@ def get_abertura_porta_summary():
                 "error_code": "INVALID_PARAMETER"
             }), 400
         
+        # Convert cd_cliente to integer if provided
+        if cd_cliente:
+            try:
+                cd_cliente = int(cd_cliente)
+            except ValueError:
+                return jsonify({
+                    "error": "cdCliente must be a valid integer",
+                    "error_code": "INVALID_PARAMETER"
+                }), 400
+        
         # Get optional device filter
         cd_dispositivos = request.args.getlist('cdDispositivos[]')
         if cd_dispositivos:
@@ -674,6 +692,7 @@ def get_abertura_porta_summary():
             dt_inicio=dt_registro_inicio,
             dt_fim=dt_registro_fim,
             cd_dispositivos=cd_dispositivos if cd_dispositivos else None,
+            cd_cliente=cd_cliente,
             db_client=supabase_client
         )
         
