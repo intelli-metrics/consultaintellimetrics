@@ -440,9 +440,13 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
 
     # Get device configurations for time filtering
     dispositivos = list(set(row["cdDispositivo"] for row in resultado))
-    horarios = db_client.table("TbDispositivo").select(
-        "cdDispositivo", "horarioMedicaoInicio", "horarioMedicaoFim"
-    ).in_("cdDispositivo", dispositivos).execute().data
+    horarios = (
+        db_client.table("TbDispositivo")
+        .select("cdDispositivo", "horarioMedicaoInicio", "horarioMedicaoFim")
+        .in_("cdDispositivo", dispositivos)
+        .execute()
+        .data
+    )
 
     # Create a dict for quick lookup
     horarios_dict = {
@@ -459,10 +463,12 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
             continue
 
         inicio_str, fim_str = horario
-        
+
         # Convert string times to datetime.time objects
         try:
-            inicio = datetime.strptime(inicio_str, "%H:%M:%S").time() if inicio_str else None
+            inicio = (
+                datetime.strptime(inicio_str, "%H:%M:%S").time() if inicio_str else None
+            )
             fim = datetime.strptime(fim_str, "%H:%M:%S").time() if fim_str else None
             hora = datetime.fromisoformat(row["dtRegistro"]).time()
             print(inicio, fim, hora)
@@ -470,7 +476,7 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
             # If there's any error converting the times, skip filtering for this row
             filtered_resultado.append(row)
             continue
-            
+
         # Check if time is within range
         if inicio > fim:  # Crosses midnight
             if hora >= inicio or hora <= fim:
@@ -503,7 +509,7 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
         elif row["dsUnidadeMedida"] == "unidade":
             row["nrQtdItens"] = row["nrLeituraSensor"]
             row["nrTemperatura"] = 0
-    
+
     if len(filtered_resultado) == 0:
         return filtered_resultado
 
@@ -739,7 +745,9 @@ def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
     return {"dispositivos": resultado.data, "nomeProduto": dsNome}
 
 
-def get_abertura_porta_hourly_aggregation(cd_produto, dt_inicio, dt_fim, cd_dispositivos=None, db_client=supabase_api):
+def get_abertura_porta_hourly_aggregation(
+    cd_produto, dt_inicio, dt_fim, cd_dispositivos=None, cd_cliente=None, db_client=supabase_api
+):
     """
     Get hourly aggregation for door opening sensors
     
@@ -748,50 +756,64 @@ def get_abertura_porta_hourly_aggregation(cd_produto, dt_inicio, dt_fim, cd_disp
         dt_inicio (str): Start date in ISO format
         dt_fim (str): End date in ISO format
         cd_dispositivos (list, optional): List of device IDs to filter
+        cd_cliente (int, optional): Client ID to filter
         db_client: Supabase client instance
     
     Returns:
         dict: Aggregated data with hourly breakdown
     """
+
+    # Convert date strings to proper format if provided
+    if dt_inicio:
+        start_dt, _ = convert_sao_paulo_date_to_utc_range(dt_inicio)
+        dt_inicio = start_dt
+
+    if dt_fim:
+        _, end_dt = convert_sao_paulo_date_to_utc_range(dt_fim)
+        dt_fim = end_dt
+
     try:
         # Call the RPC function
         response = db_client.rpc(
-            'get_abertura_porta_hourly_aggregation',
+            "get_abertura_porta_hourly_aggregation",
             {
-                'p_cd_produto': cd_produto,
-                'p_dt_inicio': dt_inicio,
-                'p_dt_fim': dt_fim,
-                'p_cd_dispositivos': cd_dispositivos
-            }
+                "p_cd_produto": cd_produto,
+                "p_dt_inicio": dt_inicio,
+                "p_dt_fim": dt_fim,
+                "p_cd_dispositivos": cd_dispositivos,
+                "p_cd_cliente": cd_cliente,
+            },
         ).execute()
-        
+
         # Process the results
         hourly_data = {}
         total_value = 0
         total_records = 0
         last_read_timestamp = None
-        
+
         for row in response.data:
             hour_key = f"{row['hour_of_day']:02d}"  # Format as "00", "01", etc.
-            hourly_data[hour_key] = row['total_value']
-            total_value += row['total_value']
-            total_records += row['record_count']
-            
+            hourly_data[hour_key] = row["total_value"]
+            total_value += row["total_value"]
+            total_records += row["record_count"]
+
             # Track the most recent timestamp
-            if row['last_read'] and (last_read_timestamp is None or row['last_read'] > last_read_timestamp):
-                last_read_timestamp = row['last_read']
-        
+            if row["last_read"] and (
+                last_read_timestamp is None or row["last_read"] > last_read_timestamp
+            ):
+                last_read_timestamp = row["last_read"]
+
         # Calculate average
         average_hourly = total_value / 24 if total_value > 0 else 0
-        
+
         return {
             "hourly": hourly_data,
             "total": total_value,
             "average_hourly": round(average_hourly, 2),
             "record_count": total_records,
-            "last_read": last_read_timestamp
+            "last_read": last_read_timestamp,
         }
-        
+
     except Exception as e:
         print(f"Error in get_abertura_porta_hourly_aggregation: {e}")
         raise e
