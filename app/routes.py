@@ -30,7 +30,7 @@ from .services import (
     Selecionar_VwTbProdutoTipo,
     Selecionar_VwTbProdutoTotalStatus,
     Selecionar_GroupedSensorData,
-    get_abertura_porta_hourly_aggregation,
+    get_abertura_porta_aggregation,
     get_endereco_coordenada,
     is_dentro_area,
     prepara_insert_registros,
@@ -625,6 +625,7 @@ def get_abertura_porta_summary():
         dt_registro_inicio = request.args.get('dt_registro_inicio')
         dt_registro_fim = request.args.get('dt_registro_fim')
         cd_cliente = request.args.get('cdCliente')
+        aggregation = request.args.get('aggregation', 'hourly')  # Default to hourly
         
         # Validate required parameters
         if not cd_produto:
@@ -675,6 +676,13 @@ def get_abertura_porta_summary():
                     "error_code": "INVALID_PARAMETER"
                 }), 400
         
+        # Validate aggregation parameter
+        if aggregation not in ['hourly', 'by_day_of_week']:
+            return jsonify({
+                "error": "aggregation must be 'hourly' or 'by_day_of_week'",
+                "error_code": "INVALID_PARAMETER"
+            }), 400
+        
         # Get optional device filter
         cd_dispositivos = request.args.getlist('cdDispositivos[]')
         if cd_dispositivos:
@@ -687,12 +695,13 @@ def get_abertura_porta_summary():
                 }), 400
         
         # Call service function
-        result = get_abertura_porta_hourly_aggregation(
+        result = get_abertura_porta_aggregation(
             cd_produto=cd_produto,
             dt_inicio=dt_registro_inicio,
             dt_fim=dt_registro_fim,
             cd_dispositivos=cd_dispositivos if cd_dispositivos else None,
             cd_cliente=cd_cliente,
+            aggregation_type=aggregation,
             db_client=supabase_client
         )
         
@@ -700,19 +709,24 @@ def get_abertura_porta_summary():
         response = {
             "metadata": {
                 "last_read": result.get("last_read"),
-                "aggregation_type": "hourly",
+                "aggregation_type": aggregation,
                 "date_range": {
                     "start": dt_registro_inicio,
                     "end": dt_registro_fim
                 }
             },
             "data": {
-                "hourly": result.get("hourly", {}),
+                aggregation: result.get(aggregation, {}),
                 "total": result.get("total", 0),
-                "average_hourly": result.get("average_hourly", 0),
                 "record_count": result.get("record_count", 0)
             }
         }
+        
+        # Add the appropriate average field based on aggregation type
+        if aggregation == 'hourly':
+            response["data"]["average_hourly"] = result.get("average_hourly", 0)
+        else:  # by_day_of_week
+            response["data"]["average_per_day_of_week"] = result.get("average_per_day_of_week", 0)
         
         return jsonify(response)
         
