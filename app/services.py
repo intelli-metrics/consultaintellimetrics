@@ -682,7 +682,7 @@ def Selecionar_VwProdutoCompleto(filtros, db_client=supabase_api):
 
 def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
     """
-    Call the get_lista_dispositivos_resumo function with the provided filters.
+    Call the simplified get_lista_dispositivos_resumo function and add sensor aggregations.
 
     Args:
         filtros (dict): Dictionary containing filter parameters:
@@ -698,7 +698,7 @@ def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
         db_client: Supabase client instance
 
     Returns:
-        dict: Query result data
+        dict: Query result data with sensor aggregations added
     """
     # Convert date strings to proper format if provided
     dt_registro_inicio = filtros.get("dt_registro_inicio")
@@ -712,37 +712,62 @@ def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
         _, end_dt = convert_sao_paulo_date_to_utc_range(dt_registro_fim)
         dt_registro_fim = end_dt
 
-    # Call the PostgreSQL function
-    query = db_client.rpc(
-        "get_lista_dispositivos_resumo",
-        {
-            "dt_registro_inicio": dt_registro_inicio,
-            "dt_registro_fim": dt_registro_fim,
-            "cd_status": filtros.get("cd_status"),
-            "ds_uf": filtros.get("ds_uf"),
-            "bl_area": filtros.get("bl_area"),
-            "nr_bateria_min": filtros.get("nr_bateria_min"),
-            "nr_bateria_max": filtros.get("nr_bateria_max"),
-            "cd_cliente": filtros.get("cd_cliente"),
-            "cd_produto": filtros.get("cd_produto"),
-        },
-    )
-
-    # busca nome do produto
-    query_produto = (
-        db_client.table("TbProduto")
-        .select("dsNome")
-        .eq("cdProduto", filtros.get("cd_produto"))
-    )
-    resultado_produto = query_produto.execute()
-
-    if len(resultado_produto.data) > 0:
-        dsNome = resultado_produto.data[0]["dsNome"]
-    else:
+    # Debug: Print parameters being passed to the function
+    rpc_params = {
+        "dt_registro_inicio": dt_registro_inicio,
+        "dt_registro_fim": dt_registro_fim,
+        "cd_status": filtros.get("cd_status"),
+        "ds_uf": filtros.get("ds_uf"),
+        "bl_area": filtros.get("bl_area"),
+        "nr_bateria_min": filtros.get("nr_bateria_min"),
+        "nr_bateria_max": filtros.get("nr_bateria_max"),
+        "cd_cliente": filtros.get("cd_cliente"),
+        "cd_produto": filtros.get("cd_produto"),
+    }
+    print(f"DEBUG: Calling get_lista_dispositivos_resumo with params: {rpc_params}")
+    
+    try:
+        # Execute the simplified SQL function (returns base device data only)
+        query = db_client.rpc(
+            "get_lista_dispositivos_resumo",
+            rpc_params,
+        )
+        resultado = query.execute()
+        print(f"DEBUG: Main query executed successfully, returned {len(resultado.data)} records")
+        
+        # Extract dispositivo IDs for sensor aggregation
+        dispositivos_ids = [d["cdDispositivo"] for d in resultado.data]
+        
+        # Get sensor aggregations using the new aggregation module
+        from .aggregations import aggregate_all_sensors
+        sensor_data = aggregate_all_sensors(
+            dispositivos_ids, 
+            dt_registro_inicio, 
+            dt_registro_fim, 
+            db_client
+        )
+        print(f"DEBUG: Sensor aggregations completed for {len(sensor_data)} devices")
+        
+        # Merge sensor data into device records
+        for dispositivo in resultado.data:
+            cd = dispositivo["cdDispositivo"]
+            aggregations = sensor_data.get(cd, {
+                'nrPorta': 0, 'nrPessoas': 0, 'nrTemp': 0, 'nrItens': 0
+            })
+            dispositivo.update(aggregations)
+        
+        # Get the product name from the first device record (all devices have the same product)
         dsNome = None
-
-    resultado = query.execute()
-    return {"dispositivos": resultado.data, "nomeProduto": dsNome}
+        if len(resultado.data) > 0:
+            dsNome = resultado.data[0].get("dsNomeProduto")
+            
+        return {"dispositivos": resultado.data, "nomeProduto": dsNome}
+        
+    except Exception as e:
+        print(f"ERROR: Failed to execute get_lista_dispositivos_resumo query: {e}")
+        print(f"ERROR: Parameters were: {rpc_params}")
+        print(f"ERROR: Exception type: {type(e)}")
+        raise e
 
 
 def get_abertura_porta_aggregation(
