@@ -804,6 +804,17 @@ def get_abertura_porta_aggregation(
             6: 'saturday'
         }
 
+        # Initialize all periods with zero values
+        if aggregation_type == 'hourly':
+            # Initialize all 24 hours (00-23)
+            for hour in range(24):
+                time_data[f"{hour:02d}"] = 0
+        else:  # by_day_of_week
+            # Initialize all 7 days
+            for day_num, day_name in day_names.items():
+                time_data[day_name] = 0
+
+        # Process actual data from database
         for row in response.data:
             if aggregation_type == 'hourly':
                 # Format as "00", "01", etc.
