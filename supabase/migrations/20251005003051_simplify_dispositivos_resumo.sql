@@ -1,6 +1,7 @@
 -- Simplified get_lista_dispositivos_resumo function
 -- Returns only base device data without sensor aggregations
 -- Sensor aggregations are now handled in Python code for better modularity
+DROP FUNCTION get_lista_dispositivos_resumo(timestamp without time zone,timestamp without time zone,status,text,boolean,double precision,double precision,integer,integer);
 
 CREATE OR REPLACE FUNCTION "public"."get_lista_dispositivos_resumo"(
     "dt_registro_inicio" timestamp without time zone DEFAULT NULL::timestamp without time zone,
