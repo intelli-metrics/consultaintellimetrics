@@ -105,13 +105,84 @@ GET /api/v2/summary/abertura-porta
 
 ### Endpoint 2: Movement Detection Summary
 ```
-GET /api/v2/summary/movimento-pessoas
+GET /v1/summary/movimento-pessoas
 ```
 
 **Additional Parameters:**
-- `aggregation` (optional): "daily" | "hourly" (default: "daily")
+- `aggregation` (optional): "hourly" | "by_day_of_week" (default: "hourly")
 
-**Response Structure:** Same as abertura-porta endpoint
+**Response Structure:**
+```json
+{
+  "metadata": {
+    "last_read": "2025-01-25T13:42:00Z",
+    "aggregation_type": "hourly",
+    "date_range": {
+      "start": "2025-01-01T00:00:00Z",
+      "end": "2025-01-05T23:59:59Z"
+    }
+  },
+  "data": {
+    "hourly": {
+      "00": 45,
+      "01": 23,
+      "02": 12,
+      "03": 8,
+      "04": 5,
+      "05": 12,
+      "06": 28,
+      "07": 67,
+      "08": 89,
+      "09": 95,
+      "10": 87,
+      "11": 92,
+      "12": 88,
+      "13": 85,
+      "14": 91,
+      "15": 94,
+      "16": 89,
+      "17": 76,
+      "18": 65,
+      "19": 54,
+      "20": 43,
+      "21": 32,
+      "22": 28,
+      "23": 35
+    },
+    "total": 1250,
+    "record_count": 1250,
+    "average_hourly": 52.08
+  }
+}
+```
+
+**Day of Week Aggregation Example:**
+```json
+{
+  "metadata": {
+    "last_read": "2025-01-25T13:42:00Z",
+    "aggregation_type": "by_day_of_week",
+    "date_range": {
+      "start": "2025-01-01T00:00:00Z",
+      "end": "2025-01-05T23:59:59Z"
+    }
+  },
+  "data": {
+    "by_day_of_week": {
+      "sunday": 180,
+      "monday": 220,
+      "tuesday": 195,
+      "wednesday": 210,
+      "thursday": 205,
+      "friday": 190,
+      "saturday": 175
+    },
+    "total": 1375,
+    "record_count": 1375,
+    "average_per_day_of_week": 196.43
+  }
+}
+```
 
 ### Endpoint 3: Temperature Summary
 ```
@@ -176,10 +247,10 @@ GET /api/v2/summary/temperatura
 - [ ] Map sensor type IDs to endpoint names (Abertura de Porta = id 2, Camera de movimento = id 5, Temperatura = id 4)
 
 ### Implementation Order for AI Agent
-1. **Start with database queries** - Create RPC functions in Supabase for each sensor type
-2. **Implement base service class** - Create shared logic for date/device filtering
-3. **Build endpoints one by one** - Start with temperatura (simplest), then abertura-porta, then movimento-pessoas
-4. **Add validation and error handling** - Implement parameter validation and proper error responses
+1. **Start with database queries** - Create RPC functions in Supabase for each sensor type ✅
+2. **Implement base service class** - Create shared logic for date/device filtering ✅
+3. **Build endpoints one by one** - Start with temperatura (simplest), then abertura-porta ✅, then movimento-pessoas ✅
+4. **Add validation and error handling** - Implement parameter validation and proper error responses ✅
 5. **Test and optimize** - Test with realistic data and optimize queries if needed
 
 ### 2. Endpoint Structure Design
@@ -190,13 +261,13 @@ GET /api/v2/summary/temperatura
 - [ ] Plan consistent error response format across all endpoints
 
 ### 3. Implementation Tasks
-- [ ] Create base service class for sensor data aggregation with shared logic
-- [ ] Implement `/api/v2/summary/abertura-porta` endpoint with daily/hourly aggregation
-- [ ] Implement `/api/v2/summary/movimento-pessoas` endpoint with daily/hourly aggregation  
-- [ ] Implement `/api/v2/summary/temperatura` endpoint (no aggregation options)
-- [ ] Add parameter validation and error handling for each endpoint
-- [ ] Add response formatting and metadata generation for each endpoint
-- [ ] Implement shared date range and device filtering logic
+- [x] Create base service class for sensor data aggregation with shared logic
+- [x] Implement `/v1/summary/abertura-porta` endpoint with hourly/by_day_of_week aggregation
+- [x] Implement `/v1/summary/movimento-pessoas` endpoint with hourly/by_day_of_week aggregation  
+- [ ] Implement `/v1/summary/temperatura` endpoint (no aggregation options)
+- [x] Add parameter validation and error handling for each endpoint
+- [x] Add response formatting and metadata generation for each endpoint
+- [x] Implement shared date range and device filtering logic
 
 ### 4. Query Implementation Details
 - [ ] Create SQL queries for daily aggregation (group by day of week)

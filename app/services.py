@@ -906,3 +906,114 @@ def get_abertura_porta_aggregation(
     except Exception as e:
         print(f"Error in get_abertura_porta_aggregation: {e}")
         raise e
+
+
+def get_movimento_pessoas_aggregation(
+    cd_produto, dt_inicio, dt_fim, cd_dispositivos=None, cd_cliente=None, aggregation_type='hourly', db_client=supabase_api
+):
+    """
+    Get aggregation for movimento-pessoas sensors (hourly or by day of week)
+    
+    Args:
+        cd_produto (int): Product ID
+        dt_inicio (str): Start date in ISO format
+        dt_fim (str): End date in ISO format
+        cd_dispositivos (list, optional): List of device IDs to filter
+        cd_cliente (int, optional): Client ID to filter
+        aggregation_type (str): 'hourly' or 'by_day_of_week'
+        db_client: Supabase client instance
+    
+    Returns:
+        dict: Aggregated data with time period breakdown
+    """
+
+    # Convert date strings to proper format if provided
+    if dt_inicio:
+        start_dt, _ = convert_sao_paulo_date_to_utc_range(dt_inicio)
+        dt_inicio = start_dt
+
+    if dt_fim:
+        _, end_dt = convert_sao_paulo_date_to_utc_range(dt_fim)
+        dt_fim = end_dt
+
+    try:
+        # Call the unified RPC function
+        response = db_client.rpc(
+            "get_movimento_pessoas_aggregation",
+            {
+                "p_cd_produto": cd_produto,
+                "p_dt_inicio": dt_inicio,
+                "p_dt_fim": dt_fim,
+                "p_cd_dispositivos": cd_dispositivos,
+                "p_cd_cliente": cd_cliente,
+                "p_aggregation_type": aggregation_type,
+            },
+        ).execute()
+
+        # Process the results
+        time_data = {}
+        total_value = 0
+        total_records = 0
+        last_read_timestamp = None
+
+        # Day of week mapping (PostgreSQL DOW: 0=Sunday, 1=Monday, etc.)
+        day_names = {
+            0: 'sunday',
+            1: 'monday', 
+            2: 'tuesday',
+            3: 'wednesday',
+            4: 'thursday',
+            5: 'friday',
+            6: 'saturday'
+        }
+
+        # Initialize all periods with zero values
+        if aggregation_type == 'hourly':
+            # Initialize all 24 hours (00-23)
+            for hour in range(24):
+                time_data[f"{hour:02d}"] = 0
+        else:  # by_day_of_week
+            # Initialize all 7 days
+            for day_num, day_name in day_names.items():
+                time_data[day_name] = 0
+
+        # Process actual data from database
+        for row in response.data:
+            if aggregation_type == 'hourly':
+                # Format as "00", "01", etc.
+                time_key = f"{row['time_period']:02d}"
+            else:  # by_day_of_week
+                # Map numeric DOW to day name
+                time_key = day_names.get(row['time_period'], f"unknown_{row['time_period']}")
+            
+            time_data[time_key] = row["total_value"]
+            total_value += row["total_value"]
+            total_records += row["record_count"]
+
+            # Track the most recent timestamp
+            if row["last_read"] and (
+                last_read_timestamp is None or row["last_read"] > last_read_timestamp
+            ):
+                last_read_timestamp = row["last_read"]
+
+        # Calculate average
+        if aggregation_type == 'hourly':
+            average_key = 'average_hourly'
+            average_value = total_value / 24 if total_value > 0 else 0
+        else:  # by_day_of_week
+            average_key = 'average_per_day_of_week'
+            average_value = total_value / 7 if total_value > 0 else 0
+
+        result = {
+            aggregation_type: time_data,
+            "total": total_value,
+            average_key: round(average_value, 2),
+            "record_count": total_records,
+            "last_read": last_read_timestamp,
+        }
+
+        return result
+
+    except Exception as e:
+        print(f"Error in get_movimento_pessoas_aggregation: {e}")
+        raise e
