@@ -134,7 +134,7 @@ Add daily aggregation option and device filtering.
 
 ### Additional Parameters
 - `aggregation` (optional): "by_day_of_week" | "hourly" (default: "hourly")
-- `cdDispositivos[]` (optional): Array of device IDs
+- `cdDispositivos` (optional): Comma-separated list of device IDs
 
 ### Enhanced Response Structure
 ```json
@@ -275,86 +275,16 @@ Test with realistic data and optimize performance.
   - [x] Test error scenarios (invalid dates, missing params)
 
 ### Sprint 2: Enhanced Features
-- [ ] **Daily Aggregation**
-  - [ ] Create RPC function for daily aggregation with different GROUP BY clause
-  - [ ] Change query from `EXTRACT(HOUR FROM sr.dtRegistro)` to `EXTRACT(DOW FROM sr.dtRegistro)`
-  - [ ] Add day-of-week mapping (0=sunday, 1=monday, 2=tuesday, etc.)
-  - [ ] Map numeric DOW to English day names (monday, tuesday, wednesday, thursday, friday, saturday, sunday)
-  - [ ] Update service method to handle aggregation parameter and call appropriate RPC function
-  - [ ] Update endpoint to accept `aggregation` parameter ("by_day_of_week" | "hourly")
+- [x] **Daily Aggregation**
+  - [x] Create RPC function for daily aggregation with different GROUP BY clause
+  - [x] Change query from `EXTRACT(HOUR FROM sr.dtRegistro)` to `EXTRACT(DOW FROM sr.dtRegistro)`
+  - [x] Add day-of-week mapping (0=sunday, 1=monday, 2=tuesday, etc.)
+  - [x] Map numeric DOW to English day names (monday, tuesday, wednesday, thursday, friday, saturday, sunday)
+  - [x] Update service method to handle aggregation parameter and call appropriate RPC function
+  - [x] Update endpoint to accept `aggregation` parameter ("by_day_of_week" | "hourly")
 
-- [ ] **Device Filtering**
-  - [ ] Update RPC function to accept device array parameter
-  - [ ] Add device validation logic
-  - [ ] Update service method for device filtering
-  - [ ] Update endpoint to accept `cdDispositivos[]` parameter
-
-### Sprint 3: Error Handling & Validation
-- [ ] **Parameter Validation**
-  - [ ] Validate date formats (ISO 8601)
-  - [ ] Validate product ID exists
-  - [ ] Validate date ranges (start < end)
-  - [ ] Validate device IDs if provided
-
-- [ ] **Error Responses**
-  - [ ] Implement consistent error response format
-  - [ ] Add specific error codes
-  - [ ] Handle database connection errors
-  - [ ] Handle no data found scenarios
-  - [ ] Add proper HTTP status codes
-
-### Sprint 4: Testing & Optimization
-- [ ] **Performance Testing**
-  - [ ] Test with realistic data volumes
-  - [ ] Measure query execution times
-  - [ ] Optimize SQL queries if needed
-  - [ ] Test memory usage
-
-- [ ] **Edge Case Testing**
-  - [ ] Test with no data in date range
-  - [ ] Test with invalid product ID
-  - [ ] Test with very large date ranges
-  - [ ] Test with empty device arrays
-
-- [ ] **Documentation**
-  - [ ] Add endpoint documentation
-  - [ ] Create example requests/responses
-  - [ ] Document error scenarios
-  - [ ] Update API specification
-
-### Database & Infrastructure
-- [ ] **Database Optimization**
-  - [ ] Check if indexes exist on `TbSensorRegistro` (cdDispositivo, dtRegistro, cdSensor)
-  - [ ] Create indexes if needed for performance
-  - [ ] Test query performance with large datasets
-
-- [ ] **Security & Authentication**
-  - [ ] Verify Supabase authentication integration
-  - [ ] Test RLS (Row Level Security) policies
-  - [ ] Ensure proper user access validation
-
-### Code Quality & Maintenance
-- [ ] **Code Review**
-  - [ ] Review SQL functions for security
-  - [ ] Review Python code for best practices
-  - [ ] Add proper logging
-  - [ ] Add code comments and documentation
-
-- [ ] **Testing**
-  - [ ] Write unit tests for service methods
-  - [ ] Write integration tests for endpoints
-  - [ ] Test error handling scenarios
-  - [ ] Performance regression testing
-
-### Future Enhancements (Post-MVP)
-- [ ] **Additional Features**
-  - [ ] Add caching for frequently requested data
-  - [ ] Add real-time data updates
-  - [ ] Add export functionality
-  - [ ] Add historical comparison features
-
-- [ ] **Monitoring & Observability**
-  - [ ] Add metrics collection
-  - [ ] Add performance monitoring
-  - [ ] Add error tracking
-  - [ ] Add usage analytics
+- [x] **Device Filtering**
+  - [x] Update RPC function to accept device array parameter
+  - [x] Add device validation logic
+  - [x] Update service method for device filtering
+  - [x] Update endpoint to accept `cdDispositivos` parameter (comma-separated list)
