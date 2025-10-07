@@ -683,14 +683,16 @@ def get_abertura_porta_summary():
                 "error_code": "INVALID_PARAMETER"
             }), 400
         
-        # Get optional device filter
-        cd_dispositivos = request.args.getlist('cdDispositivos[]')
-        if cd_dispositivos:
+        # Get optional device filter (comma-separated list)
+        cd_dispositivos_param = request.args.get('cdDispositivos')
+        cd_dispositivos = None
+        if cd_dispositivos_param:
             try:
-                cd_dispositivos = [int(d) for d in cd_dispositivos]
+                # Split by comma and convert to integers
+                cd_dispositivos = [int(d.strip()) for d in cd_dispositivos_param.split(',') if d.strip()]
             except ValueError:
                 return jsonify({
-                    "error": "cdDispositivos must be valid integers",
+                    "error": "cdDispositivos must be a comma-separated list of valid integers",
                     "error_code": "INVALID_PARAMETER"
                 }), 400
         
