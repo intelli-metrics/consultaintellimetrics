@@ -579,6 +579,66 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
         .first()
         .reset_index()
     )
+    masculino_df = (
+        df[df["dsUnidadeMedida"] == "masculino"]
+        .groupby("cdPosicao")["nrMasculino"]
+        .first()
+        .reset_index()
+    )
+    feminino_df = (
+        df[df["dsUnidadeMedida"] == "feminino"]
+        .groupby("cdPosicao")["nrFeminino"]
+        .first()
+        .reset_index()
+    )
+    crianca_df = (
+        df[df["dsUnidadeMedida"] == "crianca"]
+        .groupby("cdPosicao")["nrCrianca"]
+        .first()
+        .reset_index()
+    )
+    jovem_df = (
+        df[df["dsUnidadeMedida"] == "jovem"]
+        .groupby("cdPosicao")["nrJovem"]
+        .first()
+        .reset_index()
+    )
+    adulto_df = (
+        df[df["dsUnidadeMedida"] == "adulto"]
+        .groupby("cdPosicao")["nrAdulto"]
+        .first()
+        .reset_index()
+    )
+    senior_df = (
+        df[df["dsUnidadeMedida"] == "senior"]
+        .groupby("cdPosicao")["nrSenior"]
+        .first()
+        .reset_index()
+    )
+    alegre_df = (
+        df[df["dsUnidadeMedida"] == "alegre"]
+        .groupby("cdPosicao")["nrAlegre"]
+        .first()
+        .reset_index()
+    )
+    triste_df = (
+        df[df["dsUnidadeMedida"] == "triste"]
+        .groupby("cdPosicao")["nrTriste"]
+        .first()
+        .reset_index()
+    )
+    neutro_df = (
+        df[df["dsUnidadeMedida"] == "neutro"]
+        .groupby("cdPosicao")["nrNeutro"]
+        .first()
+        .reset_index()
+    )
+    categoria_total_df = (
+        df[df["dsUnidadeMedida"] == "categoria_total"]
+        .groupby("cdPosicao")["nrCategoriaTotal"]
+        .first()
+        .reset_index()
+    )
 
     # Pivot the quantities
     pivot_df = df.pivot_table(
@@ -596,6 +656,16 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
     final_df = base_df.merge(temp_df, on="cdPosicao", how="left")
     final_df = final_df.merge(porta_df, on="cdPosicao", how="left")
     final_df = final_df.merge(pessoas_df, on="cdPosicao", how="left")
+    final_df = final_df.merge(masculino_df, on="cdPosicao", how="left")
+    final_df = final_df.merge(feminino_df, on="cdPosicao", how="left")
+    final_df = final_df.merge(crianca_df, on="cdPosicao", how="left")
+    final_df = final_df.merge(jovem_df, on="cdPosicao", how="left")
+    final_df = final_df.merge(adulto_df, on="cdPosicao", how="left")
+    final_df = final_df.merge(senior_df, on="cdPosicao", how="left")
+    final_df = final_df.merge(alegre_df, on="cdPosicao", how="left")
+    final_df = final_df.merge(triste_df, on="cdPosicao", how="left")
+    final_df = final_df.merge(neutro_df, on="cdPosicao", how="left")
+    final_df = final_df.merge(categoria_total_df, on="cdPosicao", how="left")
     final_df = final_df.merge(pivot_df, on="cdPosicao", how="left")
 
     result_json = final_df.to_json(orient="records", date_format="iso")
