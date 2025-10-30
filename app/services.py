@@ -377,17 +377,6 @@ def Selecionar_VwTbProdutoTipo(codigo, db_client=supabase_api):
     return resultado.data
 
 
-def Selecionar_VwTbProdutoTotal(codigo, db_client=supabase_api):
-    query = db_client.table("VwTbProdutoTotal").select("*")
-
-    if codigo != "0":
-        query.eq("cdProduto", codigo)
-
-    resultado = query.execute()
-
-    return resultado.data
-
-
 def Selecionar_VwRelHistoricoDispositivoProduto(filtros, db_client=supabase_api):
     query = db_client.table("VwRelHistoricoDispositivoProduto").select("*")
 
