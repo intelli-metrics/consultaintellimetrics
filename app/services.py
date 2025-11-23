@@ -1049,3 +1049,246 @@ def get_movimento_pessoas_aggregation(
     except Exception as e:
         print(f"Error in get_movimento_pessoas_aggregation: {e}")
         raise e
+
+
+def get_temperatura_aggregation(
+    cd_produto, dt_inicio, dt_fim, cd_dispositivos=None, cd_cliente=None, aggregation_type='daily', db_client=supabase_api
+):
+    """
+    Get aggregation for temperatura sensors (daily or by day of week)
+    
+    Args:
+        cd_produto (int): Product ID
+        dt_inicio (str): Start date in ISO format
+        dt_fim (str): End date in ISO format
+        cd_dispositivos (list, optional): List of device IDs to filter
+        cd_cliente (int, optional): Client ID to filter
+        aggregation_type (str): 'daily' or 'by_day_of_week'
+        db_client: Supabase client instance
+    
+    Returns:
+        dict: Aggregated data with time period breakdown
+    """
+
+    # Convert date strings to proper format if provided
+    if dt_inicio:
+        start_dt, _ = convert_sao_paulo_date_to_utc_range(dt_inicio)
+        dt_inicio = start_dt
+
+    if dt_fim:
+        _, end_dt = convert_sao_paulo_date_to_utc_range(dt_fim)
+        dt_fim = end_dt
+
+    try:
+        # First, get device IDs for the product
+        dispositivos_query = db_client.table("TbDispositivo").select("cdDispositivo, cdCliente").eq("cdProduto", cd_produto)
+        dispositivos_result = dispositivos_query.execute()
+        
+        # Filter devices by cliente if provided
+        dispositivo_ids = []
+        for d in dispositivos_result.data:
+            if cd_cliente and d.get("cdCliente") != cd_cliente:
+                continue
+            dispositivo_ids.append(d["cdDispositivo"])
+        
+        # Filter devices by cd_dispositivos if provided
+        if cd_dispositivos:
+            dispositivo_ids = [did for did in dispositivo_ids if did in cd_dispositivos]
+        
+        if not dispositivo_ids:
+            # Return empty structure based on aggregation type
+            if aggregation_type == 'daily':
+                return {
+                    "daily": {},
+                    "total": 0,
+                    "average_daily": 0,
+                    "record_count": 0,
+                    "last_read": None
+                }
+            else:  # by_day_of_week
+                day_names = {
+                    0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday',
+                    4: 'thursday', 5: 'friday', 6: 'saturday'
+                }
+                return {
+                    "by_day_of_week": {day_name: 0 for day_name in day_names.values()},
+                    "total": 0,
+                    "average_per_day_of_week": 0,
+                    "record_count": 0,
+                    "last_read": None
+                }
+        
+        # Get temperatura sensor IDs for these devices
+        sensores_query = (
+            db_client.table("TbSensor")
+            .select("cdSensor")
+            .eq("cdTipoSensor", 4)  # Temperatura
+            .in_("cdDispositivo", dispositivo_ids)
+        )
+        sensores_result = sensores_query.execute()
+        
+        temperatura_sensor_ids = [s["cdSensor"] for s in sensores_result.data]
+        
+        if not temperatura_sensor_ids:
+            # Return empty structure based on aggregation type
+            if aggregation_type == 'daily':
+                return {
+                    "daily": {},
+                    "total": 0,
+                    "average_daily": 0,
+                    "record_count": 0,
+                    "last_read": None
+                }
+            else:  # by_day_of_week
+                day_names = {
+                    0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday',
+                    4: 'thursday', 5: 'friday', 6: 'saturday'
+                }
+                return {
+                    "by_day_of_week": {day_name: 0 for day_name in day_names.values()},
+                    "total": 0,
+                    "average_per_day_of_week": 0,
+                    "record_count": 0,
+                    "last_read": None
+                }
+        
+        # Query temperatura sensor registros
+        registros_query = (
+            db_client.table("TbSensorRegistro")
+            .select("nrValor, dtRegistro")
+            .in_("cdSensor", temperatura_sensor_ids)
+            .gte("dtRegistro", dt_inicio)
+            .lte("dtRegistro", dt_fim)
+            .order("dtRegistro")
+        )
+        resultado = registros_query.execute()
+        
+        temperatura_registros = resultado.data
+        
+        if not temperatura_registros:
+            # Return empty structure based on aggregation type
+            if aggregation_type == 'daily':
+                return {
+                    "daily": {},
+                    "total": 0,
+                    "average_daily": 0,
+                    "record_count": 0,
+                    "last_read": None
+                }
+            else:  # by_day_of_week
+                day_names = {
+                    0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday',
+                    4: 'thursday', 5: 'friday', 6: 'saturday'
+                }
+                return {
+                    "by_day_of_week": {day_name: 0 for day_name in day_names.values()},
+                    "total": 0,
+                    "average_per_day_of_week": 0,
+                    "record_count": 0,
+                    "last_read": None
+                }
+        
+        # Process the results based on aggregation type
+        time_data = {}
+        total_value = 0
+        total_records = 0
+        last_read_timestamp = None
+        
+        # Day of week mapping (PostgreSQL DOW: 0=Sunday, 1=Monday, etc.)
+        day_names = {
+            0: 'sunday',
+            1: 'monday', 
+            2: 'tuesday',
+            3: 'wednesday',
+            4: 'thursday',
+            5: 'friday',
+            6: 'saturday'
+        }
+        
+        if aggregation_type == 'daily':
+            # Group by date (YYYY-MM-DD)
+            daily_temps = {}
+            
+            for registro in temperatura_registros:
+                if registro.get("nrValor") is None:
+                    continue
+                
+                # Extract date from timestamp
+                dt = datetime.fromisoformat(registro["dtRegistro"].replace('Z', '+00:00'))
+                date_key = dt.date().isoformat()  # YYYY-MM-DD
+                
+                if date_key not in daily_temps:
+                    daily_temps[date_key] = []
+                
+                daily_temps[date_key].append(float(registro["nrValor"]))
+                total_records += 1
+                
+                # Track last read
+                if last_read_timestamp is None or registro["dtRegistro"] > last_read_timestamp:
+                    last_read_timestamp = registro["dtRegistro"]
+            
+            # Calculate average temperature per day
+            for date_key, temps in daily_temps.items():
+                avg_temp = sum(temps) / len(temps)
+                time_data[date_key] = round(avg_temp, 2)
+                total_value += avg_temp
+            
+            # Calculate overall average
+            num_days = len(daily_temps) if daily_temps else 1
+            average_value = total_value / num_days if total_value > 0 else 0
+            
+            result = {
+                "daily": time_data,
+                "total": round(total_value, 2),
+                "average_daily": round(average_value, 2),
+                "record_count": total_records,
+                "last_read": last_read_timestamp,
+            }
+            
+        else:  # by_day_of_week
+            # Initialize all 7 days with empty lists
+            day_temps = {day_name: [] for day_name in day_names.values()}
+            
+            for registro in temperatura_registros:
+                if registro.get("nrValor") is None:
+                    continue
+                
+                # Extract day of week from timestamp
+                dt = datetime.fromisoformat(registro["dtRegistro"].replace('Z', '+00:00'))
+                day_of_week = dt.weekday()  # 0=Monday, 6=Sunday
+                # Convert to PostgreSQL DOW (0=Sunday, 6=Saturday)
+                pg_dow = (day_of_week + 1) % 7
+                day_name = day_names[pg_dow]
+                
+                day_temps[day_name].append(float(registro["nrValor"]))
+                total_records += 1
+                
+                # Track last read
+                if last_read_timestamp is None or registro["dtRegistro"] > last_read_timestamp:
+                    last_read_timestamp = registro["dtRegistro"]
+            
+            # Calculate average temperature per day of week
+            for day_name, temps in day_temps.items():
+                if temps:
+                    avg_temp = sum(temps) / len(temps)
+                    time_data[day_name] = round(avg_temp, 2)
+                    total_value += avg_temp
+                else:
+                    time_data[day_name] = 0
+            
+            # Calculate average per day of week
+            average_value = total_value / 7 if total_value > 0 else 0
+            
+            result = {
+                "by_day_of_week": time_data,
+                "total": round(total_value, 2),
+                "average_per_day_of_week": round(average_value, 2),
+                "record_count": total_records,
+                "last_read": last_read_timestamp,
+            }
+        
+        return result
+
+    except Exception as e:
+        print(f"Error in get_temperatura_aggregation: {e}")
+        raise e
