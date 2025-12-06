@@ -689,6 +689,65 @@ def Selecionar_VwTbPosicaoAtual(filtros, db_client=supabase_api):
     return resultado.data
 
 
+def Selecionar_VwTbPosicaoAtualV2(
+    cd_produto: str = None,
+    cd_dispositivos: list = None,
+    db_client=supabase_api
+):
+    """
+    Select current positions from VwTbPosicaoAtual view with improved filtering.
+    
+    This function provides better filtering capabilities than the original:
+    - Supports filtering by product ID
+    - Supports filtering by multiple device IDs using IN clause
+    - Properly handles type conversion and validation
+    
+    Args:
+        cd_produto: Product ID to filter by (string, will be converted to int)
+        cd_dispositivos: List of device IDs to filter by (list of integers)
+        db_client: Supabase client instance
+        
+    Returns:
+        List of position records matching the filters
+        
+    Example:
+        # Filter by product only
+        Selecionar_VwTbPosicaoAtualV2(cd_produto="123", db_client=client)
+        
+        # Filter by product and specific devices
+        Selecionar_VwTbPosicaoAtualV2(
+            cd_produto="123",
+            cd_dispositivos=[1, 2, 3],
+            db_client=client
+        )
+    """
+    query = db_client.table("VwTbPosicaoAtual").select("*")
+    
+    # Apply product filter if provided
+    if cd_produto and cd_produto.strip():
+        try:
+            cd_produto_int = int(cd_produto.strip())
+            query = query.eq("cdProduto", cd_produto_int)
+        except (ValueError, TypeError):
+            # If conversion fails, return empty result
+            return []
+    
+    # Apply device filter if provided
+    if cd_dispositivos and len(cd_dispositivos) > 0:
+        # Validate all items are integers
+        try:
+            # Ensure all are integers (in case they're strings)
+            cd_dispositivos_int = [int(d) for d in cd_dispositivos]
+            # Use .in_() for multiple device IDs
+            query = query.in_("cdDispositivo", cd_dispositivos_int)
+        except (ValueError, TypeError):
+            # If any conversion fails, return empty result
+            return []
+    
+    resultado = query.execute()
+    return resultado.data
+
+
 def Selecionar_TbEndereco(dsLat, dsLong, db_client=supabase_api):
     query = (
         db_client.table("TbEndereco")
