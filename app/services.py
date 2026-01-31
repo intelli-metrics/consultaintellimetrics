@@ -1378,3 +1378,217 @@ def get_temperatura_aggregation(
     except Exception as e:
         print(f"Error in get_temperatura_aggregation: {e}")
         raise e
+
+
+def get_camera_categorias_aggregation(
+    cd_produto, dt_inicio, dt_fim, cd_dispositivos=None, cd_cliente=None, db_client=supabase_api
+):
+    """
+    Get aggregation for camera category sensors (gender, age, emotion) by hour of day
+
+    Args:
+        cd_produto (int): Product ID
+        dt_inicio (str): Start date in YYYYMMDD format
+        dt_fim (str): End date in YYYYMMDD format
+        cd_dispositivos (list, optional): List of device IDs to filter
+        cd_cliente (int, optional): Client ID to filter
+        db_client: Supabase client instance
+
+    Returns:
+        dict: Aggregated data with hourly breakdown for gender, age, and emotion categories
+    """
+    # Convert date strings to proper format if provided
+    if dt_inicio:
+        start_dt, _ = convert_sao_paulo_date_to_utc_range(dt_inicio)
+        dt_inicio_utc = start_dt
+
+    if dt_fim:
+        _, end_dt = convert_sao_paulo_date_to_utc_range(dt_fim)
+        dt_fim_utc = end_dt
+
+    try:
+        # First, get device IDs for the product
+        dispositivos_query = db_client.table("TbDispositivo").select("cdDispositivo, cdCliente").eq("cdProduto", cd_produto)
+        dispositivos_result = dispositivos_query.execute()
+
+        # Filter devices by cliente if provided
+        dispositivo_ids = []
+        for d in dispositivos_result.data:
+            if cd_cliente and d.get("cdCliente") != cd_cliente:
+                continue
+            dispositivo_ids.append(d["cdDispositivo"])
+
+        # Filter devices by cd_dispositivos if provided
+        if cd_dispositivos:
+            dispositivo_ids = [did for did in dispositivo_ids if did in cd_dispositivos]
+
+        # Check if any devices have category sensors
+        has_category_sensors = False
+        if dispositivo_ids:
+            sensores_check = (
+                db_client.table("TbSensor")
+                .select("cdSensor, cdTipoSensor")
+                .in_("cdDispositivo", dispositivo_ids)
+                .in_("cdTipoSensor", [6, 7, 8, 9, 10, 11, 12, 13, 14, 15])  # Category sensor types
+                .execute()
+            )
+            has_category_sensors = len(sensores_check.data) > 0
+
+        if not dispositivo_ids or not has_category_sensors:
+            # Return empty structure
+            empty_hourly = {f"{h:02d}": {"masculino": 0, "feminino": 0} for h in range(24)}
+            empty_hourly_age = {f"{h:02d}": {"crianca": 0, "jovem": 0, "adulto": 0, "senior": 0} for h in range(24)}
+            empty_hourly_emotion = {f"{h:02d}": {"alegre": 0, "concentrado": 0, "neutro": 0} for h in range(24)}
+            return {
+                "metadata": {
+                    "last_read": None,
+                    "date_range": {"start": dt_inicio, "end": dt_fim},
+                    "has_category_sensors": has_category_sensors,
+                },
+                "data": {
+                    "hourly": {
+                        "gender": empty_hourly,
+                        "age": empty_hourly_age,
+                        "emotion": empty_hourly_emotion,
+                    },
+                    "totals": {
+                        "gender": {"masculino": 0, "feminino": 0},
+                        "age": {"crianca": 0, "jovem": 0, "adulto": 0, "senior": 0},
+                        "emotion": {"alegre": 0, "concentrado": 0, "neutro": 0},
+                    },
+                    "emotion_by_age": {
+                        "crianca": {"alegre": 0, "concentrado": 0, "neutro": 0},
+                        "jovem": {"alegre": 0, "concentrado": 0, "neutro": 0},
+                        "adulto": {"alegre": 0, "concentrado": 0, "neutro": 0},
+                        "senior": {"alegre": 0, "concentrado": 0, "neutro": 0},
+                    },
+                },
+            }
+
+        # Query VwRelHistoricoDispositivoProduto for category data
+        query = (
+            db_client.table("VwRelHistoricoDispositivoProduto")
+            .select("dtRegistro, nrMasculino, nrFeminino, nrCrianca, nrJovem, nrAdulto, nrSenior, nrAlegre, nrTriste, nrNeutro")
+            .in_("cdDispositivo", dispositivo_ids)
+            .gte("dtRegistro", dt_inicio_utc)
+            .lte("dtRegistro", dt_fim_utc)
+            .limit(100000)
+        )
+
+        resultado = query.execute()
+        registros = resultado.data
+
+        # Initialize data structures
+        tz_sp = pytz.timezone("America/Sao_Paulo")
+
+        # Hourly data
+        hourly_gender = {f"{h:02d}": {"masculino": 0, "feminino": 0} for h in range(24)}
+        hourly_age = {f"{h:02d}": {"crianca": 0, "jovem": 0, "adulto": 0, "senior": 0} for h in range(24)}
+        hourly_emotion = {f"{h:02d}": {"alegre": 0, "concentrado": 0, "neutro": 0} for h in range(24)}
+
+        # Totals
+        totals_gender = {"masculino": 0, "feminino": 0}
+        totals_age = {"crianca": 0, "jovem": 0, "adulto": 0, "senior": 0}
+        totals_emotion = {"alegre": 0, "concentrado": 0, "neutro": 0}
+
+        # Emotion by age group (for cross-tabulation chart)
+        emotion_by_age = {
+            "crianca": {"alegre": 0, "concentrado": 0, "neutro": 0},
+            "jovem": {"alegre": 0, "concentrado": 0, "neutro": 0},
+            "adulto": {"alegre": 0, "concentrado": 0, "neutro": 0},
+            "senior": {"alegre": 0, "concentrado": 0, "neutro": 0},
+        }
+
+        last_read_timestamp = None
+
+        for registro in registros:
+            # Parse timestamp and convert to Sao Paulo timezone
+            dt_str = registro["dtRegistro"]
+            if dt_str:
+                dt = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+                dt_sp = dt.astimezone(tz_sp)
+                hour_key = f"{dt_sp.hour:02d}"
+
+                # Track last read
+                if last_read_timestamp is None or dt_str > last_read_timestamp:
+                    last_read_timestamp = dt_str
+            else:
+                continue
+
+            # Gender data
+            masculino = registro.get("nrMasculino") or 0
+            feminino = registro.get("nrFeminino") or 0
+
+            if masculino > 0 or feminino > 0:
+                hourly_gender[hour_key]["masculino"] += masculino
+                hourly_gender[hour_key]["feminino"] += feminino
+                totals_gender["masculino"] += masculino
+                totals_gender["feminino"] += feminino
+
+            # Age data
+            crianca = registro.get("nrCrianca") or 0
+            jovem = registro.get("nrJovem") or 0
+            adulto = registro.get("nrAdulto") or 0
+            senior = registro.get("nrSenior") or 0
+
+            if crianca > 0 or jovem > 0 or adulto > 0 or senior > 0:
+                hourly_age[hour_key]["crianca"] += crianca
+                hourly_age[hour_key]["jovem"] += jovem
+                hourly_age[hour_key]["adulto"] += adulto
+                hourly_age[hour_key]["senior"] += senior
+                totals_age["crianca"] += crianca
+                totals_age["jovem"] += jovem
+                totals_age["adulto"] += adulto
+                totals_age["senior"] += senior
+
+            # Emotion data
+            alegre = registro.get("nrAlegre") or 0
+            concentrado = registro.get("nrTriste") or 0  # nrTriste maps to "Concentrado"
+            neutro = registro.get("nrNeutro") or 0
+
+            if alegre > 0 or concentrado > 0 or neutro > 0:
+                hourly_emotion[hour_key]["alegre"] += alegre
+                hourly_emotion[hour_key]["concentrado"] += concentrado
+                hourly_emotion[hour_key]["neutro"] += neutro
+                totals_emotion["alegre"] += alegre
+                totals_emotion["concentrado"] += concentrado
+                totals_emotion["neutro"] += neutro
+
+            # Emotion by age group - distribute proportionally
+            # If we have both age and emotion data, calculate cross-tabulation
+            total_age = crianca + jovem + adulto + senior
+            total_emotion = alegre + concentrado + neutro
+
+            if total_age > 0 and total_emotion > 0:
+                # Distribute emotions proportionally across age groups
+                for age_key, age_val in [("crianca", crianca), ("jovem", jovem), ("adulto", adulto), ("senior", senior)]:
+                    if age_val > 0:
+                        age_ratio = age_val / total_age
+                        emotion_by_age[age_key]["alegre"] += int(alegre * age_ratio)
+                        emotion_by_age[age_key]["concentrado"] += int(concentrado * age_ratio)
+                        emotion_by_age[age_key]["neutro"] += int(neutro * age_ratio)
+
+        return {
+            "metadata": {
+                "last_read": last_read_timestamp,
+                "date_range": {"start": dt_inicio, "end": dt_fim},
+                "has_category_sensors": True,
+            },
+            "data": {
+                "hourly": {
+                    "gender": hourly_gender,
+                    "age": hourly_age,
+                    "emotion": hourly_emotion,
+                },
+                "totals": {
+                    "gender": totals_gender,
+                    "age": totals_age,
+                    "emotion": totals_emotion,
+                },
+                "emotion_by_age": emotion_by_age,
+            },
+        }
+
+    except Exception as e:
+        print(f"Error in get_camera_categorias_aggregation: {e}")
+        raise e

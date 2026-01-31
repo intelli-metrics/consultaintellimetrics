@@ -117,9 +117,10 @@ def aggregate_simple_sensors(
         
         resultado = query.execute()
         
-        # Create a mapping of sensor ID to sensor type for processing
+        # Create mappings of sensor ID to sensor type and device for processing
         sensor_type_map = {s["cdSensor"]: s["cdTipoSensor"] for s in sensor_result.data}
-        
+        sensor_device_map = {s["cdSensor"]: s["cdDispositivo"] for s in sensor_result.data}
+
         # Process results and aggregate
         device_aggregations = defaultdict(lambda: {
             'nrPorta': 0.0,
@@ -131,11 +132,14 @@ def aggregate_simple_sensors(
         temp_readings = defaultdict(list)  # For averaging temperature
         
         for row in resultado.data:
-            cd_dispositivo = row["cdDispositivo"]
-            nr_valor = float(row["nrValor"]) if row["nrValor"] is not None else 0.0
             cd_sensor = row["cdSensor"]
+            # Use cdDispositivo from TbSensor (authoritative) instead of TbSensorRegistro
+            cd_dispositivo = sensor_device_map.get(cd_sensor)
+            if cd_dispositivo is None:
+                continue
+            nr_valor = float(row["nrValor"]) if row["nrValor"] is not None else 0.0
             cd_tipo_sensor = sensor_type_map.get(cd_sensor)
-            
+
             if cd_tipo_sensor == 2:  # Door sensor
                 device_aggregations[cd_dispositivo]['nrPorta'] += nr_valor
             elif cd_tipo_sensor == 4:  # Temperature sensor
@@ -217,9 +221,10 @@ def aggregate_itens_sensors(
         
         resultado = query.execute()
         
-        # Create a mapping of sensor ID to sensor type for processing
+        # Create mappings of sensor ID to sensor type and device for processing
         sensor_type_map = {s["cdSensor"]: s["cdTipoSensor"] for s in sensor_result.data}
-        
+        sensor_device_map = {s["cdSensor"]: s["cdDispositivo"] for s in sensor_result.data}
+
         # Get product item data for calculations
         produto_items = set()
         for row in resultado.data:
@@ -243,15 +248,18 @@ def aggregate_itens_sensors(
         device_items = defaultdict(list)  # Store all item calculations for averaging
         
         for row in resultado.data:
-            cd_dispositivo = row["cdDispositivo"]
-            nr_valor = float(row["nrValor"]) if row["nrValor"] is not None else 0.0
             cd_sensor = row["cdSensor"]
+            # Use cdDispositivo from TbSensor (authoritative) instead of TbSensorRegistro
+            cd_dispositivo = sensor_device_map.get(cd_sensor)
+            if cd_dispositivo is None:
+                continue
+            nr_valor = float(row["nrValor"]) if row["nrValor"] is not None else 0.0
             cd_tipo_sensor = sensor_type_map.get(cd_sensor)
             cd_produto_item = row["cdProdutoItem"]
-            
+
             # Get product item data
             produto_item = produto_item_data.get(cd_produto_item) if cd_produto_item else None
-            
+
             if cd_tipo_sensor == 3:  # Weight sensor
                 nr_peso_unit = float(produto_item["nrPesoUnit"]) if produto_item and produto_item["nrPesoUnit"] else 0.0
                 if nr_peso_unit > 0:

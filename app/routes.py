@@ -33,6 +33,7 @@ from .services import (
     get_abertura_porta_aggregation,
     get_movimento_pessoas_aggregation,
     get_temperatura_aggregation,
+    get_camera_categorias_aggregation,
     get_endereco_coordenada,
     is_dentro_area,
     prepara_insert_registros,
@@ -1002,6 +1003,107 @@ def get_temperatura_summary():
         
     except Exception as e:
         print(f"Error in get_temperatura_summary: {e}")
+        return jsonify({
+            "error": "Internal server error",
+            "error_code": "INTERNAL_ERROR",
+            "details": str(e)
+        }), 500
+
+
+@main.route("/v1/summary/camera-categorias", methods=["GET"])
+def get_camera_categorias_summary():
+    """
+    Get camera category sensor summary data (gender, age, emotion) aggregated by hour
+    """
+    # Get authenticated client
+    supabase_client, error = get_authenticated_client(request=request)
+
+    if error or supabase_client is None:
+        return jsonify({"error": error, "error_code": "AUTHENTICATION_ERROR"}), 401
+
+    try:
+        # Get required parameters
+        cd_produto = request.args.get('cdProduto')
+        dt_registro_inicio = request.args.get('dt_registro_inicio')
+        dt_registro_fim = request.args.get('dt_registro_fim')
+        cd_cliente = request.args.get('cdCliente')
+
+        # Validate required parameters
+        if not cd_produto:
+            return jsonify({
+                "error": "cdProduto parameter is required",
+                "error_code": "MISSING_PARAMETER"
+            }), 400
+
+        if not dt_registro_inicio:
+            return jsonify({
+                "error": "dt_registro_inicio parameter is required",
+                "error_code": "MISSING_PARAMETER"
+            }), 400
+
+        if not dt_registro_fim:
+            return jsonify({
+                "error": "dt_registro_fim parameter is required",
+                "error_code": "MISSING_PARAMETER"
+            }), 400
+
+        # Validate date formats and range
+        is_valid, error_message, error_code, parsed_dates = validate_date_range(
+            dt_registro_inicio, dt_registro_fim
+        )
+
+        if not is_valid:
+            return jsonify({
+                "error": error_message,
+                "error_code": error_code
+            }), 400
+
+        # Convert cd_produto to integer
+        try:
+            cd_produto = int(cd_produto)
+        except ValueError:
+            return jsonify({
+                "error": "cdProduto must be a valid integer",
+                "error_code": "INVALID_PARAMETER"
+            }), 400
+
+        # Convert cd_cliente to integer if provided
+        if cd_cliente:
+            try:
+                cd_cliente = int(cd_cliente)
+            except ValueError:
+                return jsonify({
+                    "error": "cdCliente must be a valid integer",
+                    "error_code": "INVALID_PARAMETER"
+                }), 400
+
+        # Get optional device filter (comma-separated list)
+        cd_dispositivos_param = request.args.get('cdDispositivos')
+        cd_dispositivos = None
+        if cd_dispositivos_param:
+            try:
+                # Split by comma and convert to integers
+                cd_dispositivos = [int(d.strip()) for d in cd_dispositivos_param.split(',') if d.strip()]
+            except ValueError:
+                return jsonify({
+                    "error": "cdDispositivos must be a comma-separated list of valid integers",
+                    "error_code": "INVALID_PARAMETER"
+                }), 400
+
+        # Call service function
+        result = get_camera_categorias_aggregation(
+            cd_produto=cd_produto,
+            dt_inicio=dt_registro_inicio,
+            dt_fim=dt_registro_fim,
+            cd_dispositivos=cd_dispositivos if cd_dispositivos else None,
+            cd_cliente=cd_cliente,
+            db_client=supabase_client
+        )
+
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Error in get_camera_categorias_summary: {e}")
         return jsonify({
             "error": "Internal server error",
             "error_code": "INTERNAL_ERROR",
