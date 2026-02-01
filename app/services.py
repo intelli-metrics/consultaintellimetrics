@@ -1527,19 +1527,19 @@ def get_camera_categorias_aggregation(
                 totals_emotion["concentrado"] += concentrado
                 totals_emotion["neutro"] += neutro
 
-            # Emotion by age group - distribute proportionally
-            # If we have both age and emotion data, calculate cross-tabulation
-            total_age = crianca + jovem + adulto + senior
-            total_emotion = alegre + concentrado + neutro
+        # Compute emotion_by_age using global totals (proportional distribution)
+        # This works even when age and emotion data come from different records
+        global_total_age = sum(totals_age.values())
+        global_total_emotion = sum(totals_emotion.values())
 
-            if total_age > 0 and total_emotion > 0:
-                # Distribute emotions proportionally across age groups
-                for age_key, age_val in [("crianca", crianca), ("jovem", jovem), ("adulto", adulto), ("senior", senior)]:
-                    if age_val > 0:
-                        age_ratio = age_val / total_age
-                        emotion_by_age[age_key]["alegre"] += int(alegre * age_ratio)
-                        emotion_by_age[age_key]["concentrado"] += int(concentrado * age_ratio)
-                        emotion_by_age[age_key]["neutro"] += int(neutro * age_ratio)
+        if global_total_age > 0 and global_total_emotion > 0:
+            for age_key in ["crianca", "jovem", "adulto", "senior"]:
+                age_count = totals_age[age_key]
+                if age_count > 0:
+                    age_ratio = age_count / global_total_age
+                    emotion_by_age[age_key]["alegre"] = int(totals_emotion["alegre"] * age_ratio)
+                    emotion_by_age[age_key]["concentrado"] = int(totals_emotion["concentrado"] * age_ratio)
+                    emotion_by_age[age_key]["neutro"] = int(totals_emotion["neutro"] * age_ratio)
 
         return {
             "metadata": {
