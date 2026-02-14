@@ -883,7 +883,31 @@ def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
         if len(resultado.data) > 0:
             dsNome = resultado.data[0].get("dsNomeProduto")
 
-        return {"dispositivos": resultado.data, "nomeProduto": dsNome, "tiposSensores": tiposSensores}
+        # Get the product image from TbImagens
+        dsCaminhoImagem = None
+        cdCodigoImagem = None
+        cd_produto = filtros.get("cd_produto")
+        if cd_produto:
+            try:
+                img_result = db_client.table("TbImagens") \
+                    .select("dsCaminho, cdCodigo") \
+                    .eq("cdProduto", cd_produto) \
+                    .order("nrImagem") \
+                    .limit(1) \
+                    .execute()
+                if img_result.data and len(img_result.data) > 0:
+                    dsCaminhoImagem = img_result.data[0].get("dsCaminho")
+                    cdCodigoImagem = img_result.data[0].get("cdCodigo")
+            except Exception as img_err:
+                print(f"WARNING: Failed to fetch product image: {img_err}")
+
+        return {
+            "dispositivos": resultado.data,
+            "nomeProduto": dsNome,
+            "tiposSensores": tiposSensores,
+            "dsCaminhoImagem": dsCaminhoImagem,
+            "cdCodigoImagem": cdCodigoImagem,
+        }
         
     except Exception as e:
         print(f"ERROR: Failed to execute get_lista_dispositivos_resumo query: {e}")
