@@ -857,29 +857,33 @@ def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
         dispositivos_ids = [d["cdDispositivo"] for d in resultado.data]
         
         # Get sensor aggregations using the new aggregation module
-        from .aggregations import aggregate_all_sensors
-        sensor_data = aggregate_all_sensors(
-            dispositivos_ids, 
-            dt_registro_inicio, 
-            dt_registro_fim, 
+        from .aggregations import aggregate_all_sensors, CATEGORY_FIELDS
+        sensor_data, tiposSensores = aggregate_all_sensors(
+            dispositivos_ids,
+            dt_registro_inicio,
+            dt_registro_fim,
             db_client
         )
         print(f"DEBUG: Sensor aggregations completed for {len(sensor_data)} devices")
-        
+
         # Merge sensor data into device records
+        default_aggregations = {
+            'nrPorta': 0, 'nrPessoas': 0, 'nrTemp': 0, 'nrItens': 0
+        }
+        for field in CATEGORY_FIELDS:
+            default_aggregations[field] = 0
+
         for dispositivo in resultado.data:
             cd = dispositivo["cdDispositivo"]
-            aggregations = sensor_data.get(cd, {
-                'nrPorta': 0, 'nrPessoas': 0, 'nrTemp': 0, 'nrItens': 0
-            })
+            aggregations = sensor_data.get(cd, dict(default_aggregations))
             dispositivo.update(aggregations)
-        
+
         # Get the product name from the first device record (all devices have the same product)
         dsNome = None
         if len(resultado.data) > 0:
             dsNome = resultado.data[0].get("dsNomeProduto")
-            
-        return {"dispositivos": resultado.data, "nomeProduto": dsNome}
+
+        return {"dispositivos": resultado.data, "nomeProduto": dsNome, "tiposSensores": tiposSensores}
         
     except Exception as e:
         print(f"ERROR: Failed to execute get_lista_dispositivos_resumo query: {e}")
