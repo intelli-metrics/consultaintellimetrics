@@ -632,6 +632,38 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
     return result_json
 
 
+def Selecionar_HistoricoPaginado(filtros, db_client, page=1, page_size=20):
+    dt_inicio = filtros.get("dtRegistroComeco")
+    dt_fim = filtros.get("dtRegistroFim")
+    cd_cliente = filtros.get("cdCliente")
+    cd_dispositivo = filtros.get("cdDispositivo")
+
+    params = {
+        "p_page": page,
+        "p_page_size": page_size,
+    }
+
+    if cd_cliente:
+        params["p_cd_cliente"] = int(cd_cliente)
+    if cd_dispositivo and cd_dispositivo != "0":
+        params["p_cd_dispositivo"] = int(cd_dispositivo)
+    if dt_inicio:
+        start_dt, _ = convert_sao_paulo_date_to_utc_range(dt_inicio)
+        params["p_dt_registro_comeco"] = start_dt
+    if dt_fim:
+        _, end_dt = convert_sao_paulo_date_to_utc_range(dt_fim)
+        params["p_dt_registro_fim"] = end_dt
+
+    try:
+        resultado = db_client.rpc("get_historico_paginado", params).execute()
+    except Exception as e:
+        print("Erro buscando get_historico_paginado")
+        print(e)
+        return {"data": [], "total": 0, "page": page, "pageSize": page_size}
+
+    return resultado.data
+
+
 def Selecionar_VwRelDadosDispositivo(filtros, db_client=supabase_api):
     query = db_client.table("VwRelDadosDispositivo").select("*")
 
