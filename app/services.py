@@ -460,7 +460,6 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
             )
             fim = datetime.strptime(fim_str, "%H:%M:%S").time() if fim_str else None
             hora = datetime.fromisoformat(row["dtRegistro"]).time()
-            print(inicio, fim, hora)
         except (ValueError, TypeError):
             # If there's any error converting the times, skip filtering for this row
             filtered_resultado.append(row)
@@ -469,11 +468,9 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
         # Check if time is within range
         if inicio > fim:  # Crosses midnight
             if hora >= inicio or hora <= fim:
-                print("dentro do horario")
                 filtered_resultado.append(row)
         else:  # Normal range
             if inicio <= hora <= fim:
-                print("dentro do horario")
                 filtered_resultado.append(row)
 
     # processa cada linha para calcular nrQtdItens e nrTemperatura baseado no tipo de sensor
