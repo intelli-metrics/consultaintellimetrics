@@ -287,6 +287,98 @@ def aggregate_itens_sensors(
         return {}
 
 
+CATEGORY_SENSOR_TYPES = [9, 10, 11, 12, 13, 14, 15, 16, 17]
+
+CATEGORY_TYPE_TO_FIELD = {
+    9: 'nrMasculino',
+    10: 'nrFeminino',
+    11: 'nrCrianca',
+    12: 'nrJovem',
+    13: 'nrAdulto',
+    14: 'nrSenior',
+    15: 'nrAlegre',
+    16: 'nrConcentrado',
+    17: 'nrNeutro',
+}
+
+CATEGORY_FIELDS = list(CATEGORY_TYPE_TO_FIELD.values())
+
+
+def aggregate_category_sensors(
+    dispositivos_by_type: Dict[int, List[int]],
+    dt_inicio: Optional[str],
+    dt_fim: Optional[str],
+    db_client
+) -> Dict[int, Dict[str, float]]:
+    """
+    Query for sensor types 9-17 (camera category: gender, age, emotion).
+    SUMs per device per category type.
+
+    Returns:
+        Dict mapping cdDispositivo to category aggregations:
+        {
+            cdDispositivo: {
+                'nrMasculino': X, 'nrFeminino': Y, ...
+            }
+        }
+    """
+    devices_with_category = set()
+    for sensor_type in CATEGORY_SENSOR_TYPES:
+        if sensor_type in dispositivos_by_type:
+            devices_with_category.update(dispositivos_by_type[sensor_type])
+
+    if not devices_with_category:
+        return {}
+
+    try:
+        sensor_query = (
+            db_client.table("TbSensor")
+            .select("cdSensor", "cdDispositivo", "cdTipoSensor")
+            .in_("cdDispositivo", list(devices_with_category))
+            .in_("cdTipoSensor", CATEGORY_SENSOR_TYPES)
+        )
+        sensor_result = sensor_query.execute()
+
+        if not sensor_result.data:
+            return {}
+
+        sensor_ids = [s["cdSensor"] for s in sensor_result.data]
+        sensor_type_map = {s["cdSensor"]: s["cdTipoSensor"] for s in sensor_result.data}
+        sensor_device_map = {s["cdSensor"]: s["cdDispositivo"] for s in sensor_result.data}
+
+        query = (
+            db_client.table("TbSensorRegistro")
+            .select("cdSensor", "nrValor")
+            .in_("cdSensor", sensor_ids)
+        )
+
+        if dt_inicio:
+            query = query.gte("dtRegistro", dt_inicio)
+        if dt_fim:
+            query = query.lte("dtRegistro", dt_fim)
+
+        resultado = query.execute()
+
+        device_aggregations = defaultdict(lambda: {f: 0.0 for f in CATEGORY_FIELDS})
+
+        for row in resultado.data:
+            cd_sensor = row["cdSensor"]
+            cd_dispositivo = sensor_device_map.get(cd_sensor)
+            if cd_dispositivo is None:
+                continue
+            nr_valor = float(row["nrValor"]) if row["nrValor"] is not None else 0.0
+            cd_tipo_sensor = sensor_type_map.get(cd_sensor)
+            field = CATEGORY_TYPE_TO_FIELD.get(cd_tipo_sensor)
+            if field:
+                device_aggregations[cd_dispositivo][field] += nr_valor
+
+        return dict(device_aggregations)
+
+    except Exception as e:
+        print(f"Error aggregating category sensors: {e}")
+        return {}
+
+
 def aggregate_all_sensors(
     dispositivos_ids: List[int], 
     dt_inicio: Optional[str], 
@@ -308,49 +400,56 @@ def aggregate_all_sensors(
         db_client: Supabase client instance
     
     Returns:
-        Dict mapping cdDispositivo to all sensor aggregations:
-        {
-            cdDispositivo: {
-                'nrPorta': 0,
-                'nrPessoas': 0, 
-                'nrTemp': 0,
-                'nrItens': 0
-            }
-        }
-        All devices get all 4 fields, defaulting to 0 if sensor type not present.
+        Tuple of (result, all_sensor_types) where:
+        - result: Dict mapping cdDispositivo to all sensor aggregations
+        - all_sensor_types: Sorted list of all sensor types across all devices
     """
     if not dispositivos_ids:
-        return {}
-    
+        return {}, []
+
     # Step 1: Get sensor types for each device
     print(f"DEBUG: Getting sensor types for {len(dispositivos_ids)} devices: {dispositivos_ids}")
     sensor_types_by_device = get_sensor_types_by_dispositivo(dispositivos_ids, db_client)
     print(f"DEBUG: Sensor types by device: {sensor_types_by_device}")
-    
+
     # Step 2: Group devices by sensor type
     dispositivos_by_type = defaultdict(list)
     for cd_dispositivo, sensor_types in sensor_types_by_device.items():
         for sensor_type in sensor_types:
             dispositivos_by_type[sensor_type].append(cd_dispositivo)
-    
+
     # Step 3: Initialize result with all devices having default values
+    default_values = {
+        'nrPorta': 0,
+        'nrPessoas': 0,
+        'nrTemp': 0,
+        'nrItens': 0,
+    }
+    for field in CATEGORY_FIELDS:
+        default_values[field] = 0
+
     result = {}
     for cd_dispositivo in dispositivos_ids:
-        result[cd_dispositivo] = {
-            'nrPorta': 0,
-            'nrPessoas': 0,
-            'nrTemp': 0,
-            'nrItens': 0
-        }
-    
+        result[cd_dispositivo] = dict(default_values)
+
     # Step 4: Get simple sensor aggregations (types 2, 4, 5)
     simple_sensors = aggregate_simple_sensors(dispositivos_by_type, dt_inicio, dt_fim, db_client)
     for cd_dispositivo, aggregations in simple_sensors.items():
         result[cd_dispositivo].update(aggregations)
-    
+
     # Step 5: Get items sensor aggregations (types 1, 3)
     items_sensors = aggregate_itens_sensors(dispositivos_by_type, dt_inicio, dt_fim, db_client)
     for cd_dispositivo, nr_itens in items_sensors.items():
         result[cd_dispositivo]['nrItens'] = nr_itens
-    
-    return result
+
+    # Step 6: Get category sensor aggregations (types 9-17)
+    category_sensors = aggregate_category_sensors(dispositivos_by_type, dt_inicio, dt_fim, db_client)
+    for cd_dispositivo, aggregations in category_sensors.items():
+        result[cd_dispositivo].update(aggregations)
+
+    # Compute union of all sensor types across all devices
+    all_sensor_types = sorted(set(
+        st for types in sensor_types_by_device.values() for st in types
+    ))
+
+    return result, all_sensor_types

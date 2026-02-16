@@ -487,7 +487,6 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
             )
             fim = datetime.strptime(fim_str, "%H:%M:%S").time() if fim_str else None
             hora = datetime.fromisoformat(row["dtRegistro"]).time()
-            print(inicio, fim, hora)
         except (ValueError, TypeError):
             # If there's any error converting the times, skip filtering for this row
             filtered_resultado.append(row)
@@ -496,11 +495,9 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
         # Check if time is within range
         if inicio > fim:  # Crosses midnight
             if hora >= inicio or hora <= fim:
-                print("dentro do horario")
                 filtered_resultado.append(row)
         else:  # Normal range
             if inicio <= hora <= fim:
-                print("dentro do horario")
                 filtered_resultado.append(row)
 
     # processa cada linha para calcular nrQtdItens e nrTemperatura baseado no tipo de sensor
@@ -660,6 +657,38 @@ def Selecionar_HistoricoPaginaDispositivo(filtros, db_client=supabase_api):
     result_json = final_df.to_json(orient="records", date_format="iso")
 
     return result_json
+
+
+def Selecionar_HistoricoPaginado(filtros, db_client, page=1, page_size=20):
+    dt_inicio = filtros.get("dtRegistroComeco")
+    dt_fim = filtros.get("dtRegistroFim")
+    cd_cliente = filtros.get("cdCliente")
+    cd_dispositivo = filtros.get("cdDispositivo")
+
+    params = {
+        "p_page": page,
+        "p_page_size": page_size,
+    }
+
+    if cd_cliente:
+        params["p_cd_cliente"] = int(cd_cliente)
+    if cd_dispositivo and cd_dispositivo != "0":
+        params["p_cd_dispositivo"] = int(cd_dispositivo)
+    if dt_inicio:
+        start_dt, _ = convert_sao_paulo_date_to_utc_range(dt_inicio)
+        params["p_dt_registro_comeco"] = start_dt
+    if dt_fim:
+        _, end_dt = convert_sao_paulo_date_to_utc_range(dt_fim)
+        params["p_dt_registro_fim"] = end_dt
+
+    try:
+        resultado = db_client.rpc("get_historico_paginado", params).execute()
+    except Exception as e:
+        print("Erro buscando get_historico_paginado")
+        print(e)
+        return {"data": [], "total": 0, "page": page, "pageSize": page_size}
+
+    return resultado.data
 
 
 def Selecionar_VwRelDadosDispositivo(filtros, db_client=supabase_api):
@@ -884,29 +913,57 @@ def Selecionar_ListaDispositivosResumo(filtros, db_client=supabase_api):
         dispositivos_ids = [d["cdDispositivo"] for d in resultado.data]
         
         # Get sensor aggregations using the new aggregation module
-        from .aggregations import aggregate_all_sensors
-        sensor_data = aggregate_all_sensors(
-            dispositivos_ids, 
-            dt_registro_inicio, 
-            dt_registro_fim, 
+        from .aggregations import aggregate_all_sensors, CATEGORY_FIELDS
+        sensor_data, tiposSensores = aggregate_all_sensors(
+            dispositivos_ids,
+            dt_registro_inicio,
+            dt_registro_fim,
             db_client
         )
         print(f"DEBUG: Sensor aggregations completed for {len(sensor_data)} devices")
-        
+
         # Merge sensor data into device records
+        default_aggregations = {
+            'nrPorta': 0, 'nrPessoas': 0, 'nrTemp': 0, 'nrItens': 0
+        }
+        for field in CATEGORY_FIELDS:
+            default_aggregations[field] = 0
+
         for dispositivo in resultado.data:
             cd = dispositivo["cdDispositivo"]
-            aggregations = sensor_data.get(cd, {
-                'nrPorta': 0, 'nrPessoas': 0, 'nrTemp': 0, 'nrItens': 0
-            })
+            aggregations = sensor_data.get(cd, dict(default_aggregations))
             dispositivo.update(aggregations)
-        
+
         # Get the product name from the first device record (all devices have the same product)
         dsNome = None
         if len(resultado.data) > 0:
             dsNome = resultado.data[0].get("dsNomeProduto")
-            
-        return {"dispositivos": resultado.data, "nomeProduto": dsNome}
+
+        # Get the product image from TbImagens
+        dsCaminhoImagem = None
+        cdCodigoImagem = None
+        cd_produto = filtros.get("cd_produto")
+        if cd_produto:
+            try:
+                img_result = db_client.table("TbImagens") \
+                    .select("dsCaminho, cdCodigo") \
+                    .eq("cdProduto", cd_produto) \
+                    .order("nrImagem") \
+                    .limit(1) \
+                    .execute()
+                if img_result.data and len(img_result.data) > 0:
+                    dsCaminhoImagem = img_result.data[0].get("dsCaminho")
+                    cdCodigoImagem = img_result.data[0].get("cdCodigo")
+            except Exception as img_err:
+                print(f"WARNING: Failed to fetch product image: {img_err}")
+
+        return {
+            "dispositivos": resultado.data,
+            "nomeProduto": dsNome,
+            "tiposSensores": tiposSensores,
+            "dsCaminhoImagem": dsCaminhoImagem,
+            "cdCodigoImagem": cdCodigoImagem,
+        }
         
     except Exception as e:
         print(f"ERROR: Failed to execute get_lista_dispositivos_resumo query: {e}")
