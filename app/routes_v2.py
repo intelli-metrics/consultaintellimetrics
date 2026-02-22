@@ -122,6 +122,16 @@ def get_HistoricoPaginaDispositivo_v2(codigo):
     if codigo != "0":
         filtros["cdDispositivo"] = codigo
 
+    cd_dispositivos_param = request.args.get("cdDispositivos")
+    if cd_dispositivos_param:
+        try:
+            filtros["cdDispositivos"] = [int(x) for x in cd_dispositivos_param.split(",") if x.strip()]
+        except ValueError:
+            return jsonify({
+                "error": "cdDispositivos must be a comma-separated list of integers",
+                "error_code": "INVALID_PARAMETER"
+            }), 400
+
     try:
         resultado = Selecionar_HistoricoPaginado(
             filtros=filtros,

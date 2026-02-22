@@ -664,6 +664,7 @@ def Selecionar_HistoricoPaginado(filtros, db_client, page=1, page_size=20):
     dt_fim = filtros.get("dtRegistroFim")
     cd_cliente = filtros.get("cdCliente")
     cd_dispositivo = filtros.get("cdDispositivo")
+    cd_dispositivos = filtros.get("cdDispositivos")
 
     params = {
         "p_page": page,
@@ -674,6 +675,8 @@ def Selecionar_HistoricoPaginado(filtros, db_client, page=1, page_size=20):
         params["p_cd_cliente"] = int(cd_cliente)
     if cd_dispositivo and cd_dispositivo != "0":
         params["p_cd_dispositivo"] = int(cd_dispositivo)
+    if cd_dispositivos:
+        params["p_cd_dispositivos"] = cd_dispositivos
     if dt_inicio:
         start_dt, _ = convert_sao_paulo_date_to_utc_range(dt_inicio)
         params["p_dt_registro_comeco"] = start_dt
