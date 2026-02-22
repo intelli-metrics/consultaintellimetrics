@@ -1571,7 +1571,7 @@ def get_camera_categorias_aggregation(
 
                 # Track last read
                 if last_read_timestamp is None or dt_str > last_read_timestamp:
-                    last_read_timestamp = dt_str
+                    last_read_timestamp = dt_sp.isoformat()
             else:
                 continue
 
